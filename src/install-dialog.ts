@@ -34,7 +34,7 @@ const ERROR_ICON = "⚠️";
 const OK_ICON = "🎉";
 
 export class EwtInstallDialog extends LitElement {
-  public esploader!: any; // ESPLoader instance from tasmota-webserial-esptool
+  public esploader!: any; // ESPLoader 实例，来自 tasmota-webserial-esptool
 
   public manifestPath!: string;
 
@@ -55,7 +55,7 @@ export class EwtInstallDialog extends LitElement {
 
   private _info?: ImprovSerial["info"];
 
-  // null = NOT_SUPPORTED
+  // null = NOT_SUPPORTED（不支持）
   @state() private _client?: ImprovSerial | null;
 
   @state() private _state:
@@ -78,396 +78,390 @@ export class EwtInstallDialog extends LitElement {
 
   @state() private _error?: string;
 
-  @state() private _busy = true; // Start as busy until initialization completes
+  @state() private _busy = true; // 启动时忙碌，直到初始化完成
 
-  // undefined = not loaded
-  // null = not available
+  // undefined = 未加载
+  // null = 不可用
   @state() private _ssids?: Ssid[] | null;
 
-  // Name of Ssid. Null = other
+  // SSID名称，null = 其他
   @state() private _selectedSsid: string | null = null;
 
-  // Partition table support
+  // 分区表支持
   @state() private _partitions?: Partition[];
   @state() private _selectedPartition?: Partition;
   @state() private _espStub?: any;
 
-  // Track if Improv was already checked (to avoid repeated attempts)
+  // 跟踪是否已经检查过Improv（避免重复尝试）
   private _improvChecked = false;
 
-  // Track if console was already opened once (to avoid repeated resets)
+  // 跟踪控制台是否已经打开过一次（避免重复重置）
   private _consoleInitialized = false;
 
-  // Track if Improv is supported (separate from active client)
+  // 跟踪Improv是否受支持（与活动客户端分开）
   private _improvSupported = false;
 
-  // Track if device is using USB-JTAG or USB-OTG (not external serial chip)
+  // 跟踪设备是否使用USB-JTAG或USB-OTG（非外部串行芯片）
   @state() private _isUsbJtagOrOtgDevice = false;
 
-  // Track action to perform after port reconnection (for USB-JTAG/OTG devices)
+  // 跟踪端口重新连接后要执行的操作（用于USB-JTAG/OTG设备）
   private _openConsoleAfterReconnect = false;
   private _visitDeviceAfterReconnect = false;
   private _addToHAAfterReconnect = false;
   private _changeWiFiAfterReconnect = false;
 
-  // Ensure stub is initialized (called before any operation that needs it)
+  // 确保存根已初始化（在任何需要它的操作前调用）
   private async _ensureStub(): Promise<any> {
     if (this._espStub && this._espStub.IS_STUB) {
       this.logger.log(
-        `Existing stub: IS_STUB=${this._espStub.IS_STUB}, chipFamily=${getChipFamilyName(this._espStub)}`,
+        `现有存根：IS_STUB=${this._espStub.IS_STUB}，芯片系列=${getChipFamilyName(this._espStub)}`,
       );
 
-      // Ensure baudrate is set even if stub already exists
+      // 即使存根已存在，也要确保波特率设置正确
       if (this.baudRate && this.baudRate > 115200) {
         const currentBaud = this._espStub.currentBaudRate || 115200;
         if (currentBaud !== this.baudRate) {
-          this.logger.log(
-            `Adjusting baudrate from ${currentBaud} to ${this.baudRate}...`,
-          );
+          this.logger.log(`调整波特率从 ${currentBaud} 到 ${this.baudRate}...`);
           try {
             await this._espStub.setBaudrate(this.baudRate);
-            this.logger.log(`Baudrate set to ${this.baudRate}`);
-            // Update currentBaudRate to prevent re-setting
+            this.logger.log(`波特率设置为 ${this.baudRate}`);
+            // 更新 currentBaudRate 防止重复设置
             this._espStub.currentBaudRate = this.baudRate;
           } catch (baudErr: any) {
             this.logger.log(
-              `Failed to set baudrate: ${baudErr.message}, continuing with current`,
+              `设置波特率失败：${baudErr.message}，继续使用当前波特率`,
             );
-            // Assume baudrate is already correct if setBaudrate fails
+            // 如果 setBaudrate 失败，假定波特率已正确
             this._espStub.currentBaudRate = this.baudRate;
           }
         } else {
-          this.logger.log(`Baudrate already at ${this.baudRate}, skipping`);
+          this.logger.log(`波特率已经是 ${this.baudRate}，跳过设置`);
         }
       }
 
       return this._espStub;
     }
 
-    // Initialize if not already done
+    // 如果尚未初始化，则初始化
     if (!this.esploader.chipFamily) {
-      this.logger.log("Initializing ESP loader...");
+      this.logger.log("初始化 ESP 加载器...");
 
-      // Try twice before giving up
+      // 尝试两次，然后放弃
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
           if (attempt > 1) {
-            this.logger.log(`Retry attempt ${attempt}/2...`);
-            await sleep(500); // Wait before retry
+            this.logger.log(`重试第 ${attempt}/2 次...`);
+            await sleep(500); // 重试前等待
           }
           await this.esploader.initialize();
-          this.logger.log(`Found ${getChipFamilyName(this.esploader)}`);
-          break; // Success!
+          this.logger.log(`发现 ${getChipFamilyName(this.esploader)}`);
+          break; // 成功！
         } catch (err: any) {
           this.logger.error(
-            `Connection failed to stub (attempt ${attempt}/2): ${err.message}`,
+            `连接到存根失败（尝试 ${attempt}/2）：${err.message}`,
           );
           if (attempt === 2) {
-            // Both attempts failed - show error to user
+            // 两次尝试都失败 - 向用户显示错误
             this._state = "ERROR";
-            this._error = `Failed to connect to ESP after 2 attempts: ${err.message}`;
+            this._error = `尝试 2 次后无法连接到 ESP：${err.message}`;
             throw err;
           }
         }
       }
     }
 
-    // Run stub - chip properties are now automatically inherited from parent
-    this.logger.log("Running stub...");
+    // 运行存根 - 芯片属性现在自动从父级继承
+    this.logger.log("运行存根...");
     const espStub = await this.esploader.runStub();
 
     this.logger.log(
-      `Stub created: IS_STUB=${espStub.IS_STUB}, chipFamily=${getChipFamilyName(espStub)}`,
+      `存根已创建：IS_STUB=${espStub.IS_STUB}，芯片系列=${getChipFamilyName(espStub)}`,
     );
     this._espStub = espStub;
 
-    // Set baudrate BEFORE any operations (use user-selected baudrate if available)
+    // 在任何操作之前设置波特率（如果用户选择了更高波特率）
     if (this.baudRate && this.baudRate > 115200) {
-      this.logger.log(`Setting baudrate to ${this.baudRate}...`);
+      this.logger.log(`设置波特率为 ${this.baudRate}...`);
       try {
-        // setBaudrate now supports CDC/JTAG on Android (WebUSB)
+        // setBaudrate 现在支持 Android 上的 CDC/JTAG（WebUSB）
         await espStub.setBaudrate(this.baudRate);
-        this.logger.log(`Baudrate set to ${this.baudRate}`);
-        // Update currentBaudRate to prevent re-setting
+        this.logger.log(`波特率设置为 ${this.baudRate}`);
+        // 更新 currentBaudRate 防止重复设置
         espStub.currentBaudRate = this.baudRate;
       } catch (baudErr: any) {
-        this.logger.error(
-          `[DEBUG] setBaudrate() threw error: ${baudErr.message}`,
-        );
-        this.logger.log(
-          `Failed to set baudrate: ${baudErr.message}, continuing with default`,
-        );
+        this.logger.error(`[DEBUG] setBaudrate() 抛出错误：${baudErr.message}`);
+        this.logger.log(`设置波特率失败：${baudErr.message}，继续使用默认值`);
       }
     }
 
     this.logger.log(
-      `Returning stub: IS_STUB=${this._espStub.IS_STUB}, chipFamily=${getChipFamilyName(this._espStub)}`,
+      `返回存根：IS_STUB=${this._espStub.IS_STUB}，芯片系列=${getChipFamilyName(this._espStub)}`,
     );
     return this._espStub;
   }
 
-  // Helper to get port from esploader
+  // 从 esploader 获取端口的辅助函数
   private get _port(): SerialPort {
     return this.esploader.port;
   }
 
-  // Helper to check if device is using USB-JTAG or USB-OTG (not external serial chip)
+  // 检查设备是否使用 USB-JTAG 或 USB-OTG（非外部串行芯片）的辅助函数
   private async _isUsbJtagOrOtg(): Promise<boolean> {
-    // Use detectUsbConnectionType from tasmota-webserial-esptool
+    // 使用 tasmota-webserial-esptool 的 detectUsbConnectionType
     const isUsbJtag = await this.esploader.detectUsbConnectionType();
-    this.logger.log(`USB-JTAG/OTG detection: ${isUsbJtag ? "YES" : "NO"}`);
+    this.logger.log(`USB-JTAG/OTG 检测：${isUsbJtag ? "是" : "否"}`);
     return isUsbJtag;
   }
 
-  // Helper to check if device is WebUSB with external serial chip
+  // 检查设备是否为带外部串行芯片的 WebUSB
   private async _isWebUsbWithExternalSerial(): Promise<boolean> {
     const isWebUsb = this.esploader.isWebUSB && this.esploader.isWebUSB();
     if (!isWebUsb) {
       return false;
     }
     const isUsbJtag = await this._isUsbJtagOrOtg();
-    const result = !isUsbJtag; // WebUSB but NOT USB-JTAG = external serial
-    this.logger.log(`WebUSB with external serial: ${result ? "YES" : "NO"}`);
+    const result = !isUsbJtag; // WebUSB 但不是 USB-JTAG = 外部串行
+    this.logger.log(`带外部串行的 WebUSB：${result ? "是" : "否"}`);
     return result;
   }
 
-  // Helper to release reader/writer locks (used by multiple methods)
+  // 释放 reader/writer 锁的辅助函数（被多个方法使用）
   private async _releaseReaderWriter() {
-    // CRITICAL: Find the actual object that has the reader
-    // The stub has a _parent pointer, and the reader runs on the parent!
+    // 关键：找到实际拥有 reader 的对象
+    // 存根有一个 _parent 指针，reader 在父级上运行！
     let readerOwner = this._espStub || this.esploader;
     if (readerOwner._parent) {
       readerOwner = readerOwner._parent;
-      this.logger.log("Using parent loader for reader/writer");
+      this.logger.log("使用父加载器处理 reader/writer");
     }
 
-    // Cancel the reader on the correct object
+    // 在正确的对象上取消 reader
     if (readerOwner._reader) {
       const reader = readerOwner._reader;
       try {
         await reader.cancel();
-        this.logger.log("Reader cancelled on correct object");
+        this.logger.log("已在正确对象上取消 reader");
       } catch (err) {
-        this.logger.log("Reader cancel failed:", err);
+        this.logger.log("取消 reader 失败：", err);
       }
       try {
         reader.releaseLock();
-        this.logger.log("Reader released");
+        this.logger.log("已释放 reader 锁");
       } catch (err) {
-        this.logger.log("Reader releaseLock failed:", err);
+        this.logger.log("reader.releaseLock 失败：", err);
       }
       readerOwner._reader = undefined;
     }
 
-    // Release the writer on the correct object
+    // 在正确的对象上释放 writer
     if (readerOwner._writer) {
       const writer = readerOwner._writer;
       readerOwner._writer = undefined;
 
       try {
         writer.releaseLock();
-        this.logger.log("Writer lock released");
+        this.logger.log("已释放 writer 锁");
       } catch (err) {
-        this.logger.log("Writer releaseLock failed:", err);
+        this.logger.log("writer.releaseLock 失败：", err);
       }
     }
 
-    // For WebUSB (Android), ALWAYS recreate streams
-    // This is CRITICAL for console to work - WebUSB needs fresh streams
-    // Even if no locks were held, streams may have been consumed by other operations
+    // 对于 WebUSB（安卓），总是重新创建流
+    // 这对于控制台工作至关重要 - WebUSB 需要全新的流
+    // 即使没有持有锁，流也可能被其他操作消耗
     if (this.esploader.isWebUSB && this.esploader.isWebUSB()) {
       try {
-        this.logger.log("WebUSB detected - recreating streams");
+        this.logger.log("检测到 WebUSB - 重新创建流");
         await (this._port as any).recreateStreams();
         await sleep(200);
-        this.logger.log("WebUSB streams recreated and ready");
+        this.logger.log("WebUSB 流已重新创建并准备就绪");
       } catch (err: any) {
-        this.logger.log(`Failed to recreate WebUSB streams: ${err.message}`);
+        this.logger.log(`重新创建 WebUSB 流失败：${err.message}`);
       }
     }
   }
 
-  // Helper to reset baudrate to 115200 for console
-  // The ESP stub might be at higher baudrate (e.g., 460800) for flashing
-  // Firmware console always runs at 115200
+  // 将波特率重置为 115200 以供控制台使用的辅助函数
+  // ESP 存根可能在较高波特率（如 460800）下用于刷写
+  // 固件控制台始终以 115200 运行
   private async _resetBaudrateForConsole() {
     if (this._espStub && this._espStub.currentBaudRate !== 115200) {
       this.logger.log(
-        `Resetting baudrate from ${this._espStub.currentBaudRate} to 115200`,
+        `将波特率从 ${this._espStub.currentBaudRate} 重置为 115200`,
       );
       try {
-        // Use setBaudrate from tasmota-webserial-esptool
-        // This now supports CDC/JTAG baudrate changes on Android (WebUSB)
+        // 使用 tasmota-webserial-esptool 的 setBaudrate
+        // 现在支持 Android 上 CDC/JTAG 的波特率更改（WebUSB）
         await this._espStub.setBaudrate(115200);
-        this.logger.log("Baudrate set to 115200 for console");
+        this.logger.log("已将波特率设置为 115200 供控制台使用");
       } catch (baudErr: any) {
-        this.logger.log(`Failed to set baudrate to 115200: ${baudErr.message}`);
+        this.logger.log(`将波特率设置为 115200 失败：${baudErr.message}`);
       }
     }
   }
 
-  // Helper to prepare ESP for flash operations after Improv check
-  // Resets to bootloader mode and loads stub
+  // 准备设备进行刷写操作（在 Improv 检查之后）
+  // 重置到引导加载器模式并加载存根
   private async _prepareForFlashOperations() {
-    // Reset ESP to BOOTLOADER mode for flash operations
+    // 重置 ESP 到 BOOTLOADER 模式以进行刷写操作
     await this._resetToBootloaderAndReleaseLocks();
 
-    // Wait for ESP to enter bootloader mode
+    // 等待 ESP 进入引导加载器模式
     await sleep(100);
 
-    // Reset ESP state (chipFamily preserved from reset if successful)
+    // 重置 ESP 状态（如果重置成功，芯片系列保持不变）
     this._espStub = undefined;
     this.esploader.IS_STUB = false;
 
-    // Ensure stub is initialized
+    // 确保存根已初始化
     await this._ensureStub();
 
-    this.logger.log("ESP reset, stub loaded - ready for flash operations");
+    this.logger.log("ESP 已重置，存根已加载 - 准备进行刷写操作");
   }
 
-  // Helper to handle post-flash cleanup and Improv re-initialization
-  // Called when flash operation completes successfully
+  // 处理刷写完成后的清理和 Improv 重新初始化
+  // 当刷写操作成功完成时调用
   private async _handleFlashComplete() {
-    // Check if this is USB-JTAG or USB-OTG device (not external serial chip)
+    // 检查这是否是 USB-JTAG 或 USB-OTG 设备（非外部串行芯片）
     const isUsbJtagOrOtg = await this._isUsbJtagOrOtg();
-    this._isUsbJtagOrOtgDevice = isUsbJtagOrOtg; // Update state for UI
+    this._isUsbJtagOrOtgDevice = isUsbJtagOrOtg; // 更新 UI 状态
 
     if (isUsbJtagOrOtg) {
-      // For USB-JTAG/OTG devices: Reset to firmware mode (port will change!)
-      // Then user must select new port (User Gesture) and we test Improv
-      this.logger.log("USB-JTAG/OTG device - resetting to firmware mode");
+      // 对于 USB-JTAG/OTG 设备：重置到固件模式（端口将改变！）
+      // 然后用户必须选择新端口（用户手势），我们测试 Improv
+      this.logger.log("USB-JTAG/OTG 设备 - 重置到固件模式");
 
-      // CRITICAL: Release locks BEFORE resetToFirmware()
+      // 关键：在调用 resetToFirmware() 之前释放锁
       await this._releaseReaderWriter();
 
-      // CRITICAL: Forget the old port so browser doesn't show it in selection
+      // 关键：忘记旧端口，以免浏览器在选择中显示它
       try {
         await this._port.forget();
-        this.logger.log("Old port forgotten");
+        this.logger.log("已忘记旧端口");
       } catch (forgetErr: any) {
-        this.logger.log(`Port forget failed: ${forgetErr.message}`);
+        this.logger.log(`忘记端口失败：${forgetErr.message}`);
       }
 
       try {
-        // Use resetToFirmware() method close the port and device will reboot to firmware
+        // 使用 resetToFirmware() 方法关闭端口，设备将重启到固件
         await this.esploader.resetToFirmware();
-        this.logger.log("Device reset to firmware mode - port closed");
+        this.logger.log("设备已重置到固件模式 - 端口已关闭");
       } catch (err: any) {
-        this.logger.debug(`Reset to firmware error (expected): ${err.message}`);
+        this.logger.debug(`重置到固件错误（预期内）：${err.message}`);
       }
 
-      // Reset ESP state
+      // 重置 ESP 状态
       await sleep(100);
 
       this._espStub = undefined;
       this.esploader.IS_STUB = false;
       this.esploader.chipFamily = null;
-      this._improvChecked = false; // Will check after user reconnects
-      this._client = null; // Set to null (not undefined) to avoid "Wrapping up" UI state
-      this._improvSupported = false; // Unknown until after reconnect
+      this._improvChecked = false; // 用户重新连接后将检查
+      this._client = null; // 设为 null（不是 undefined）以避免显示“收尾”UI 状态
+      this._improvSupported = false; // 重新连接前未知
       this.esploader._reader = undefined;
 
-      this.logger.log("Flash complete - waiting for user to select new port");
+      this.logger.log("刷写完成 - 等待用户选择新端口");
 
-      // CRITICAL: Set state to REQUEST_PORT_SELECTION to show "Select Port" button
+      // 关键：将状态设置为 REQUEST_PORT_SELECTION 以显示“选择端口”按钮
       this._state = "REQUEST_PORT_SELECTION";
       this._error = "";
       this.requestUpdate();
       return;
     }
 
-    // Normal flow for non-USB-JTAG/OTG devices
-    // Release locks and reset ESP state for Improv test
+    // 非 USB-JTAG/OTG 设备的正常流程
+    // 释放锁并重置 ESP 状态以进行 Improv 测试
     await this._releaseReaderWriter();
 
-    // Reset ESP state for Improv test
+    // 重置 ESP 状态以进行 Improv 测试
     this._espStub = undefined;
     this.esploader.IS_STUB = false;
     this.esploader.chipFamily = null;
     this._improvChecked = false;
     this.esploader._reader = undefined;
-    this.logger.log("ESP state reset for Improv test");
+    this.logger.log("ESP 状态已重置，准备进行 Improv 测试");
 
-    // Reconnect with 115200 baud and reset ESP to boot into new firmware
+    // 以 115200 波特重新连接，并重置 ESP 以启动新固件
     try {
-      // CRITICAL: After flashing at higher baudrate, reconnect at 115200
-      // reconnectToBootloader() closes port and reopens at 115200 baud
-      // It now automatically detects WebUSB vs WebSerial and uses appropriate methods
-      this.logger.log("Reconnecting at 115200 baud for firmware reset...");
+      // 关键：在较高波特率下刷写后，以 115200 重新连接
+      // reconnectToBootloader() 会关闭端口并以 115200 波特重新打开
+      // 它现在会自动检测 WebUSB 与 WebSerial，并使用适当的方法
+      this.logger.log("以 115200 波特重新连接以进行固件重置...");
       try {
         await this.esploader.reconnectToBootloader();
-        this.logger.log("Port reconnected at 115200 baud");
+        this.logger.log("端口已以 115200 波特重新连接");
       } catch (reconnectErr: any) {
-        this.logger.log(`Reconnect failed: ${reconnectErr.message}`);
+        this.logger.log(`重新连接失败：${reconnectErr.message}`);
       }
 
-      // Reset device and release locks to ensure clean state for new firmware
-      // Uses chip-specific reset methods (S2/S3/C3 with USB-JTAG use watchdog)
-      this.logger.log("Performing hardware reset to start new firmware...");
+      // 重置设备并释放锁以确保新固件的干净状态
+      // 使用芯片特定的重置方法（S2/S3/C3 带 USB-JTAG 使用看门狗）
+      this.logger.log("执行硬件重置以启动新固件...");
       await this._resetDeviceAndReleaseLocks();
     } catch (resetErr: any) {
-      this.logger.log(`Hard reset failed: ${resetErr.message}`);
+      this.logger.log(`硬件重置失败：${resetErr.message}`);
     }
 
-    // Test Improv with new firmware
+    // 测试新固件的 Improv
     await this._initialize(true);
 
     this.requestUpdate();
   }
 
-  // Reset device and release locks - used when returning to dashboard or recovering from errors
-  // Reset device to FIRMWARE mode (normal execution)
+  // 重置设备并释放锁 - 用于返回仪表板或从错误中恢复
+  // 将设备重置为 FIRMWARE 模式（正常执行）
   private async _resetDeviceAndReleaseLocks() {
-    // Find the actual object that has the reader/writer
+    // 找到实际拥有 reader/writer 的对象
     let readerOwner = this._espStub || this.esploader;
     if (readerOwner._parent) {
       readerOwner = readerOwner._parent;
-      this.logger.log("Using parent loader for reader/writer");
+      this.logger.log("使用父加载器处理 reader/writer");
     }
 
-    // Call hardReset BEFORE releasing locks (so it can communicate)
+    // 在释放锁之前调用 hardReset（以便它能通信）
     try {
       await this.esploader.hardReset(false);
-      this.logger.log("Device reset sent");
+      this.logger.log("已发送设备重置");
     } catch (err) {
-      this.logger.log("Reset error (expected):", err);
+      this.logger.log("重置错误（预期内）：", err);
     }
 
-    // Wait for reset to complete
+    // 等待重置完成
     await sleep(500);
 
-    // NOW release locks after reset
+    // 现在在重置后释放锁
     await this._releaseReaderWriter();
-    this.logger.log("Device reset to firmware mode");
+    this.logger.log("设备已重置到固件模式");
 
-    // Reset ESP state
+    // 重置 ESP 状态
     this._espStub = undefined;
     this.esploader.IS_STUB = false;
     this.esploader.chipFamily = null;
   }
 
-  // Reset device to BOOTLOADER mode (for flashing)
-  // Uses ESPLoader's reconnectToBootloader() to properly close/reopen port
+  // 将设备重置为 BOOTLOADER 模式（用于刷写）
+  // 使用 ESPLoader 的 reconnectToBootloader() 来正确关闭/重新打开端口
   private async _resetToBootloaderAndReleaseLocks() {
-    // Use ESPLoader's reconnectToBootloader() - it handles:
-    // - Closing port completely (releases all locks)
-    // - Reopening port at 115200 baud
-    // - Restarting readLoop()
-    // - Reset strategies to enter bootloader (connectWithResetStrategies)
-    // - Chip detection
-    // - WebUSB vs WebSerial detection and appropriate reset methods
+    // 使用 ESPLoader 的 reconnectToBootloader() - 它处理：
+    // - 完全关闭端口（释放所有锁）
+    // - 以 115200 波特重新打开端口
+    // - 重启 readLoop()
+    // - 进入引导加载器的重置策略（connectWithResetStrategies）
+    // - 芯片检测
+    // - WebUSB 与 WebSerial 检测及适当的重置方法
     try {
-      this.logger.log("Resetting ESP to bootloader mode...");
+      this.logger.log("将 ESP 重置到引导加载器模式...");
       await this.esploader.reconnectToBootloader();
       this.logger.log(
-        `ESP in bootloader mode: ${getChipFamilyName(this.esploader)}`,
+        `ESP 处于引导加载器模式：${getChipFamilyName(this.esploader)}`,
       );
     } catch (err: any) {
-      this.logger.error(`Failed to reset ESP to bootloader: ${err.message}`);
+      this.logger.error(`将 ESP 重置到引导加载器失败：${err.message}`);
       throw err;
     }
 
-    // Reset stub state (chipFamily is preserved by reconnectToBootloader)
+    // 重置存根状态（reconnectToBootloader 会保留芯片系列）
     this._espStub = undefined;
     this.esploader.IS_STUB = false;
   }
@@ -477,11 +471,11 @@ export class EwtInstallDialog extends LitElement {
       return html``;
     }
 
-    // Safety check: Don't render DASHBOARD state until Improv check is complete
+    // 安全检查：在 Improv 检查完成之前不渲染 DASHBOARD 状态
     if (this._state === "DASHBOARD" && !this._improvChecked) {
       return html`
-        <ewt-dialog open .heading=${"Connecting"} scrimClickAction>
-          ${this._renderProgress("Initializing")}
+        <ewt-dialog open .heading=${"连接中"} scrimClickAction>
+          ${this._renderProgress("初始化")}
         </ewt-dialog>
       `;
     }
@@ -491,21 +485,21 @@ export class EwtInstallDialog extends LitElement {
     let hideActions = false;
     let allowClosing = false;
 
-    // During installation phase we temporarily remove the client
+    // 在安装阶段，我们暂时移除客户端
     if (
       this._client === undefined &&
-      !this._improvChecked && // Only show "Connecting" if we haven't checked yet
+      !this._improvChecked && // 只有尚未检查时才显示“连接中”
       this._state !== "INSTALL" &&
       this._state !== "LOGS" &&
       this._state !== "PARTITIONS" &&
       this._state !== "LITTLEFS" &&
       this._state !== "REQUEST_PORT_SELECTION" &&
-      this._state !== "DASHBOARD" // Don't show "Connecting" when in DASHBOARD state
+      this._state !== "DASHBOARD" // 在 DASHBOARD 状态时不显示“连接中”
     ) {
       if (this._error) {
         [heading, content, hideActions] = this._renderError(this._error);
       } else {
-        content = this._renderProgress("Connecting");
+        content = this._renderProgress("连接中");
         hideActions = true;
       }
     } else if (this._state === "INSTALL") {
@@ -523,9 +517,9 @@ export class EwtInstallDialog extends LitElement {
             ? this._renderDashboard()
             : this._renderDashboardNoImprov();
       } catch (err: any) {
-        this.logger.error(`Error rendering dashboard: ${err.message}`, err);
+        this.logger.error(`渲染仪表板时出错：${err.message}`, err);
         [heading, content, hideActions] = this._renderError(
-          `Dashboard render error: ${err.message}`,
+          `仪表板渲染错误：${err.message}`,
         );
       }
     } else if (this._state === "PROVISION") {
@@ -537,10 +531,10 @@ export class EwtInstallDialog extends LitElement {
     } else if (this._state === "LITTLEFS") {
       [heading, content, hideActions, allowClosing] = this._renderLittleFS();
     } else {
-      // Fallback for unknown state
-      this.logger.error(`Unknown state: ${this._state}`);
+      // 未知状态的回退
+      this.logger.error(`未知状态：${this._state}`);
       [heading, content, hideActions] = this._renderError(
-        `Unknown state: ${this._state}`,
+        `未知状态：${this._state}`,
       );
     }
 
@@ -574,13 +568,13 @@ export class EwtInstallDialog extends LitElement {
   }
 
   _renderError(label: string): [string, TemplateResult, boolean] {
-    const heading = "Error";
+    const heading = "错误";
     const content = html`
       <ewt-page-message .icon=${ERROR_ICON} .label=${label}></ewt-page-message>
       <ewt-button
         slot="primaryAction"
         dialogAction="ok"
-        label="Close"
+        label="关闭"
       ></ewt-button>
     `;
     const hideActions = false;
@@ -588,14 +582,14 @@ export class EwtInstallDialog extends LitElement {
   }
 
   _renderRequestPortSelection(): [string, TemplateResult, boolean] {
-    const heading = "Select Port";
+    const heading = "选择端口";
     const content = html`
       <ewt-page-message
-        .label=${"Device has been reset to firmware mode. The USB port has changed. Please click the button below to select the new port."}
+        .label=${"设备已重置为固件模式。USB 端口已更改。请点击下方按钮选择新端口。"}
       ></ewt-page-message>
       <ewt-button
         slot="primaryAction"
-        label="Select Port"
+        label="选择端口"
         ?disabled=${this._busy}
         @click=${this._handleSelectNewPort}
       ></ewt-button>
@@ -627,8 +621,8 @@ export class EwtInstallDialog extends LitElement {
                   ?disabled=${this._busy}
                   text-left
                   .label=${!this._isSameFirmware
-                    ? `Install ${this._manifest.name}`
-                    : `Update ${this._manifest.name}`}
+                    ? `安装 ${this._manifest.name}`
+                    : `更新 ${this._manifest.name}`}
                   @click=${() => {
                     if (this._isSameFirmware) {
                       this._startInstall(false);
@@ -648,18 +642,18 @@ export class EwtInstallDialog extends LitElement {
               <div>
                 <ewt-button
                   ?disabled=${this._busy}
-                  label="Visit Device"
+                  label="访问设备"
                   @click=${async () => {
                     this._busy = true;
 
-                    // Switch to firmware mode if needed
+                    // 如果需要，切换到固件模式
                     const needsReconnect =
                       await this._switchToFirmwareMode("visit");
                     if (needsReconnect) {
-                      return; // Will continue after port reconnection
+                      return; // 端口重新连接后继续
                     }
 
-                    // Device is in firmware mode - open URL
+                    // 设备处于固件模式 - 打开 URL
                     if (this._client && this._client.nextUrl) {
                       window.open(this._client.nextUrl, "_blank");
                     }
@@ -676,18 +670,18 @@ export class EwtInstallDialog extends LitElement {
               <div>
                 <ewt-button
                   ?disabled=${this._busy}
-                  label="Add to Home Assistant"
+                  label="添加到 Home Assistant"
                   @click=${async () => {
                     this._busy = true;
 
-                    // Switch to firmware mode if needed
+                    // 如果需要，切换到固件模式
                     const needsReconnect =
                       await this._switchToFirmwareMode("homeassistant");
                     if (needsReconnect) {
-                      return; // Will continue after port reconnection
+                      return; // 端口重新连接后继续
                     }
 
-                    // Device is in firmware mode - open HA URL
+                    // 设备处于固件模式 - 打开 HA URL
                     if (this._manifest.home_assistant_domain) {
                       window.open(
                         `https://my.home-assistant.io/redirect/config_flow_start/?domain=${this._manifest.home_assistant_domain}`,
@@ -705,41 +699,39 @@ export class EwtInstallDialog extends LitElement {
                 <ewt-button
                   ?disabled=${this._busy}
                   .label=${this._client.state === ImprovSerialCurrentState.READY
-                    ? "Connect to Wi-Fi"
-                    : "Change Wi-Fi"}
+                    ? "连接到 Wi-Fi"
+                    : "更改 Wi-Fi"}
                   @click=${async () => {
                     this._busy = true;
 
-                    // Switch to firmware mode if needed
+                    // 如果需要，切换到固件模式
                     const needsReconnect =
                       await this._switchToFirmwareMode("wifi");
                     if (needsReconnect) {
-                      return; // Will continue after port reconnection
+                      return; // 端口重新连接后继续
                     }
 
-                    // Device is in firmware mode
-                    this.logger.log(
-                      "Device is running firmware for Wi-Fi setup",
-                    );
+                    // 设备处于固件模式
+                    this.logger.log("设备正在运行固件，用于 Wi-Fi 设置");
 
-                    // Close Improv client and re-initialize for WiFi setup
+                    // 关闭 Improv 客户端并重新初始化以进行 Wi-Fi 设置
                     if (this._client) {
                       try {
                         await this._closeClientWithoutEvents(this._client);
-                        this.logger.log("Improv client closed");
+                        this.logger.log("Improv 客户端已关闭");
                       } catch (e) {
-                        this.logger.log("Failed to close Improv client:", e);
+                        this.logger.log("关闭 Improv 客户端失败：", e);
                       }
                       this._client = undefined;
 
-                      // Wait longer for port to be fully released
+                      // 等待端口完全释放
                       await sleep(500);
                     }
 
-                    // Different handling for different device types:
-                    // - WebSerial: Just release locks
-                    // - WebUSB CDC: Release locks, hardReset, release locks again
-                    // - WebUSB external serial: Just release locks
+                    // 不同类型设备的处理：
+                    // - WebSerial：只释放锁
+                    // - WebUSB CDC：释放锁，hardReset，再次释放锁
+                    // - WebUSB 外部串行：只释放锁
                     const isWebUsbExternal =
                       await this._isWebUsbWithExternalSerial();
                     const isWebUsbCdc =
@@ -748,37 +740,37 @@ export class EwtInstallDialog extends LitElement {
                       !isWebUsbExternal;
 
                     if (isWebUsbCdc) {
-                      // WebUSB CDC needs hardReset to ensure firmware is running
+                      // WebUSB CDC 需要 hardReset 以确保固件正在运行
                       this.logger.log(
-                        "WebUSB CDC: Resetting device for Wi-Fi setup...",
+                        "WebUSB CDC：重置设备以进行 Wi-Fi 设置...",
                       );
 
                       try {
-                        // Release locks BEFORE reset
+                        // 在重置前释放锁
                         await this._releaseReaderWriter();
 
-                        // Reset device
+                        // 重置设备
                         await this.esploader.hardReset(false);
-                        this.logger.log("Device reset completed");
+                        this.logger.log("设备重置完成");
 
-                        // CRITICAL: hardReset consumes streams, recreate them
+                        // 关键：hardReset 消耗流，重新创建它们
                         await this._releaseReaderWriter();
-                        this.logger.log("Streams recreated after reset");
+                        this.logger.log("重置后已重新创建流");
 
-                        // Wait for device to boot
+                        // 等待设备启动
                         await sleep(500);
                       } catch (err: any) {
-                        this.logger.log(`Reset error: ${err.message}`);
+                        this.logger.log(`重置错误：${err.message}`);
                       }
                     } else {
-                      // WebSerial or WebUSB external serial: Just release locks
+                      // WebSerial 或 WebUSB 外部串行：只释放锁
                       if (isWebUsbExternal) {
                         this.logger.log(
-                          "WebUSB external serial: Preparing port for Wi-Fi setup...",
+                          "WebUSB 外部串行：准备端口以进行 Wi-Fi 设置...",
                         );
                       } else {
                         this.logger.log(
-                          "WebSerial: Preparing port for Wi-Fi setup...",
+                          "WebSerial：准备端口以进行 Wi-Fi 设置...",
                         );
                       }
 
@@ -786,17 +778,15 @@ export class EwtInstallDialog extends LitElement {
                       await sleep(500);
                     }
 
-                    this.logger.log("Port ready for new Improv client");
+                    this.logger.log("端口已准备好用于新的 Improv 客户端");
 
-                    // CRITICAL: Recreate streams one more time to flush any buffered firmware output
-                    // Firmware debug messages can interfere with Improv protocol
-                    this.logger.log(
-                      "Flushing serial buffer before Improv init...",
-                    );
+                    // 关键：再次重新创建流以刷新任何缓冲的固件输出
+                    // 固件调试消息可能会干扰 Improv 协议
+                    this.logger.log("在 Improv 初始化前刷新串行缓冲区...");
                     await this._releaseReaderWriter();
                     await sleep(100);
 
-                    // Re-create Improv client (firmware is running at 115200 baud)
+                    // 重新创建 Improv 客户端（固件以 115200 波特运行）
                     const client = new ImprovSerial(this._port, this.logger);
                     client.addEventListener("state-changed", () => {
                       this.requestUpdate();
@@ -805,42 +795,38 @@ export class EwtInstallDialog extends LitElement {
                       this.requestUpdate(),
                     );
                     try {
-                      // Use 10 second timeout to allow device to get IP address
+                      // 使用 10 秒超时，允许设备获取 IP 地址
                       this._info = await client.initialize(10000);
                       this._client = client;
                       client.addEventListener(
                         "disconnect",
                         this._handleDisconnect,
                       );
-                      this.logger.log(
-                        "Improv client ready for Wi-Fi provisioning",
-                      );
+                      this.logger.log("Improv 客户端已准备好进行 Wi-Fi 配置");
                     } catch (improvErr: any) {
                       try {
                         await this._closeClientWithoutEvents(client);
                       } catch (closeErr) {
                         this.logger.log(
-                          "Failed to close Improv client after init error:",
+                          "初始化错误后关闭 Improv 客户端失败：",
                           closeErr,
                         );
                       }
 
-                      // CRITICAL: Recreate streams after failed Improv init
+                      // 关键：在 Improv 初始化失败后重新创建流
                       try {
                         await this._releaseReaderWriter();
-                        this.logger.log(
-                          "Streams recreated after Improv failure",
-                        );
+                        this.logger.log("Improv 失败后已重新创建流");
                       } catch (releaseErr: any) {
                         this.logger.log(
-                          `Failed to recreate streams: ${releaseErr.message}`,
+                          `重新创建流失败：${releaseErr.message}`,
                         );
                       }
 
                       this.logger.log(
-                        `Improv initialization failed: ${improvErr.message}`,
+                        `Improv 初始化失败：${improvErr.message}`,
                       );
-                      this._error = `Improv initialization failed: ${improvErr.message}`;
+                      this._error = `Improv 初始化失败：${improvErr.message}`;
                       this._state = "ERROR";
                       this._busy = false;
                       return;
@@ -859,29 +845,29 @@ export class EwtInstallDialog extends LitElement {
               <div>
                 <ewt-button
                   ?disabled=${this._busy}
-                  label="Open Console"
+                  label="打开控制台"
                   @click=${async () => {
                     this._busy = true;
 
-                    // Close Improv client if active
+                    // 如果活动，关闭 Improv 客户端
                     if (this._client) {
                       try {
                         await this._closeClientWithoutEvents(this._client);
                       } catch (e) {
-                        this.logger.log("Failed to close Improv client:", e);
+                        this.logger.log("关闭 Improv 客户端失败：", e);
                       }
                     }
 
-                    // Switch to firmware mode if needed
+                    // 如果需要，切换到固件模式
                     const needsReconnect =
                       await this._switchToFirmwareMode("console");
                     if (needsReconnect) {
-                      return; // Will continue after port reconnection
+                      return; // 端口重新连接后继续
                     }
 
-                    // Device is already in firmware mode
+                    // 设备已处于固件模式
                     this.logger.log(
-                      "Opening console for USB-JTAG/OTG device (in firmware mode)",
+                      "为 USB-JTAG/OTG 设备打开控制台（固件模式）",
                     );
 
                     this._state = "LOGS";
@@ -896,14 +882,14 @@ export class EwtInstallDialog extends LitElement {
               <div>
                 <ewt-button
                   ?disabled=${this._busy}
-                  label="Logs & Console"
+                  label="日志和控制台"
                   @click=${async () => {
                     const client = this._client;
                     if (client) {
                       await this._closeClientWithoutEvents(client);
                     }
 
-                    // switch to Firmware mode for Console
+                    // 切换到固件模式以使用控制台
                     await this._switchToFirmwareMode("console");
 
                     this._state = "LOGS";
@@ -915,32 +901,30 @@ export class EwtInstallDialog extends LitElement {
         <div>
           <ewt-button
             ?disabled=${this._busy}
-            label="Manage Filesystem"
+            label="管理文件系统"
             @click=${async () => {
-              // Filesystem management requires bootloader mode
-              // Close Improv client if active (it locks the reader)
+              // 文件系统管理需要引导加载器模式
+              // 如果活动，关闭 Improv 客户端（它会锁定 reader）
               if (this._client) {
                 try {
                   await this._closeClientWithoutEvents(this._client);
                 } catch (e) {
-                  this.logger.log("Failed to close Improv client:", e);
+                  this.logger.log("关闭 Improv 客户端失败：", e);
                 }
               }
 
-              // Switch to bootloader mode for filesystem operations
+              // 切换到引导加载器模式以进行文件系统操作
               this.logger.log(
-                "Preparing device for filesystem operations (switching to bootloader mode)...",
+                "准备设备进行文件系统操作（切换到引导加载器模式）...",
               );
 
               try {
                 await this._prepareForFlashOperations();
                 await this._ensureStub();
               } catch (err: any) {
-                this.logger.log(
-                  `Failed to prepare for filesystem: ${err.message}`,
-                );
+                this.logger.log(`准备文件系统失败：${err.message}`);
                 this._state = "ERROR";
-                this._error = `Failed to enter bootloader mode: ${err.message}`;
+                this._error = `进入引导加载器模式失败：${err.message}`;
                 return;
               }
 
@@ -957,7 +941,7 @@ export class EwtInstallDialog extends LitElement {
                   href=${this._manifest.funding_url}
                   target="_blank"
                 >
-                  <ewt-button label="Fund Development"></ewt-button>
+                  <ewt-button label="资助开发"></ewt-button>
                 </a>
               </div>
             `
@@ -968,7 +952,7 @@ export class EwtInstallDialog extends LitElement {
                 <ewt-button
                   ?disabled=${this._busy}
                   class="danger"
-                  label="Erase User Data"
+                  label="擦除用户数据"
                   @click=${() => this._startInstall(true)}
                 ></ewt-button>
               </div>
@@ -980,7 +964,7 @@ export class EwtInstallDialog extends LitElement {
     return [heading, content, hideActions, allowClosing];
   }
   _renderDashboardNoImprov(): [string, TemplateResult, boolean, boolean] {
-    const heading = "Device Dashboard";
+    const heading = "设备仪表板";
     let content: TemplateResult;
     let hideActions = true;
     let allowClosing = true;
@@ -991,12 +975,12 @@ export class EwtInstallDialog extends LitElement {
           <ewt-button
             ?disabled=${this._busy}
             text-left
-            .label=${`Install ${this._manifest.name}`}
+            .label=${`安装 ${this._manifest.name}`}
             @click=${() => {
               if (this._manifest.new_install_prompt_erase) {
                 this._state = "ASK_ERASE";
               } else {
-                // Default is to erase a device that does not support Improv Serial
+                // 默认擦除不支持 Improv 串行的设备
                 this._startInstall(true);
               }
             }}
@@ -1007,7 +991,7 @@ export class EwtInstallDialog extends LitElement {
           ? html`
               <div>
                 <ewt-button
-                  label="Logs & Console"
+                  label="日志和控制台"
                   ?disabled=${this._busy}
                   @click=${async () => {
                     this._busy = true;
@@ -1016,11 +1000,11 @@ export class EwtInstallDialog extends LitElement {
                       await this._closeClientWithoutEvents(client);
                     }
 
-                    // switch to Firmware mode for Console
+                    // 切换到固件模式以使用控制台
                     const needsReconnect =
                       await this._switchToFirmwareMode("console");
                     if (needsReconnect) {
-                      return; // Will continue after port reconnection
+                      return; // 端口重新连接后继续
                     }
 
                     this._state = "LOGS";
@@ -1035,29 +1019,29 @@ export class EwtInstallDialog extends LitElement {
               <div>
                 <ewt-button
                   ?disabled=${this._busy}
-                  label="Open Console"
+                  label="打开控制台"
                   @click=${async () => {
                     this._busy = true;
 
-                    // Close Improv client if active
+                    // 如果活动，关闭 Improv 客户端
                     if (this._client) {
                       try {
                         await this._closeClientWithoutEvents(this._client);
                       } catch (e) {
-                        this.logger.log("Failed to close Improv client:", e);
+                        this.logger.log("关闭 Improv 客户端失败：", e);
                       }
                     }
 
-                    // Switch to firmware mode if needed
+                    // 如果需要，切换到固件模式
                     const needsReconnect =
                       await this._switchToFirmwareMode("console");
                     if (needsReconnect) {
-                      return; // Will continue after port reconnection
+                      return; // 端口重新连接后继续
                     }
 
-                    // Device is already in firmware mode
+                    // 设备已处于固件模式
                     this.logger.log(
-                      "Opening console for USB-JTAG/OTG device (in firmware mode)",
+                      "为 USB-JTAG/OTG 设备打开控制台（固件模式）",
                     );
 
                     this._state = "LOGS";
@@ -1070,34 +1054,32 @@ export class EwtInstallDialog extends LitElement {
 
         <div>
           <ewt-button
-            label="Manage Filesystem"
+            label="管理文件系统"
             ?disabled=${this._busy}
             @click=${async () => {
-              // Filesystem management requires bootloader mode
-              // Close Improv client if active (it locks the reader)
+              // 文件系统管理需要引导加载器模式
+              // 如果活动，关闭 Improv 客户端（它会锁定 reader）
               if (this._client) {
                 try {
                   await this._closeClientWithoutEvents(this._client);
                 } catch (e) {
-                  this.logger.log("Failed to close Improv client:", e);
+                  this.logger.log("关闭 Improv 客户端失败：", e);
                 }
-                // Keep client object for dashboard rendering; connection already closed above.
+                // 保留客户端对象用于仪表板渲染；连接已在上方关闭。
               }
 
-              // Switch to bootloader mode for filesystem operations
+              // 切换到引导加载器模式以进行文件系统操作
               this.logger.log(
-                "Preparing device for filesystem operations (switching to bootloader mode)...",
+                "准备设备进行文件系统操作（切换到引导加载器模式）...",
               );
 
               try {
                 await this._prepareForFlashOperations();
                 await this._ensureStub();
               } catch (err: any) {
-                this.logger.log(
-                  `Failed to prepare for filesystem: ${err.message}`,
-                );
+                this.logger.log(`准备文件系统失败：${err.message}`);
                 this._state = "ERROR";
-                this._error = `Failed to enter bootloader mode: ${err.message}`;
+                this._error = `进入引导加载器模式失败：${err.message}`;
                 return;
               }
 
@@ -1113,7 +1095,7 @@ export class EwtInstallDialog extends LitElement {
   }
 
   _renderProvision(): [string | undefined, TemplateResult, boolean] {
-    let heading: string | undefined = "Configure Wi-Fi";
+    let heading: string | undefined = "配置 Wi-Fi";
     let content: TemplateResult;
     let hideActions = false;
 
@@ -1121,9 +1103,7 @@ export class EwtInstallDialog extends LitElement {
       return [
         heading,
         this._renderProgress(
-          this._ssids === undefined
-            ? "Scanning for networks"
-            : "Trying to connect",
+          this._ssids === undefined ? "扫描网络" : "尝试连接",
         ),
         true,
       ];
@@ -1142,7 +1122,7 @@ export class EwtInstallDialog extends LitElement {
       content = html`
         <ewt-page-message
           .icon=${OK_ICON}
-          label="Device connected to the network!"
+          label="设备已连接到网络！"
         ></ewt-page-message>
         ${showSetupLinks
           ? html`
@@ -1158,22 +1138,20 @@ export class EwtInstallDialog extends LitElement {
                           @click=${async (ev: Event) => {
                             ev.preventDefault();
                             const url = this._client!.nextUrl!;
-                            // Preserve user gesture for popup blockers
+                            // 为弹窗拦截器保留用户手势
                             const popup = window.open("about:blank", "_blank");
-                            // Visit Device opens external page - firmware must running
-                            // Check if device is in bootloader mode
-                            // Switch to firmware mode if needed
+                            // 访问设备打开外部页面 - 固件必须正在运行
+                            // 检查设备是否处于引导加载器模式
+                            // 如果需要，切换到固件模式
                             const needsReconnect =
                               await this._switchToFirmwareMode("visit");
                             if (needsReconnect) {
                               popup?.close();
-                              return; // Will continue after port reconnection
+                              return; // 端口重新连接后继续
                             }
 
-                            // Device is already in firmware mode
-                            this.logger.log(
-                              "Following Link (in firmware mode)",
-                            );
+                            // 设备已处于固件模式
+                            this.logger.log("跟随链接（固件模式）");
 
                             if (popup) {
                               popup.location.href = url;
@@ -1183,7 +1161,7 @@ export class EwtInstallDialog extends LitElement {
                             this._state = "DASHBOARD";
                           }}
                         >
-                          <ewt-button label="Visit Device"></ewt-button>
+                          <ewt-button label="访问设备"></ewt-button>
                         </a>
                       </div>
                     `}
@@ -1199,20 +1177,18 @@ export class EwtInstallDialog extends LitElement {
                             ev.preventDefault();
                             const url = `https://my.home-assistant.io/redirect/config_flow_start/?domain=${this._manifest.home_assistant_domain}`;
                             const popup = window.open("about:blank", "_blank");
-                            // Add to HA opens external page - firmware must running
-                            // Check if device is in bootloader mode
-                            // Switch to firmware mode if needed
+                            // 添加到 HA 打开外部页面 - 固件必须正在运行
+                            // 检查设备是否处于引导加载器模式
+                            // 如果需要，切换到固件模式
                             const needsReconnect =
                               await this._switchToFirmwareMode("homeassistant");
                             if (needsReconnect) {
                               popup?.close();
-                              return; // Will continue after port reconnection
+                              return; // 端口重新连接后继续
                             }
 
-                            // Device is already in firmware mode
-                            this.logger.log(
-                              "Following Link (in firmware mode)",
-                            );
+                            // 设备已处于固件模式
+                            this.logger.log("跟随链接（固件模式）");
 
                             if (popup) {
                               popup.location.href = url;
@@ -1223,33 +1199,29 @@ export class EwtInstallDialog extends LitElement {
                           }}
                         >
                           <ewt-button
-                            label="Add to Home Assistant"
+                            label="添加到 Home Assistant"
                           ></ewt-button>
                         </a>
                       </div>
                     `}
                 <div>
                   <ewt-button
-                    label="Skip"
+                    label="跳过"
                     @click=${async () => {
-                      // After WiFi provisioning: Device stays in firmware mode
-                      // Close Improv client first
+                      // Wi-Fi 配置后：设备保持在固件模式
+                      // 先关闭 Improv 客户端
                       if (this._client) {
                         try {
                           await this._closeClientWithoutEvents(this._client);
-                          this.logger.log(
-                            "Improv client closed after provisioning",
-                          );
+                          this.logger.log("配置后已关闭 Improv 客户端");
                         } catch (e) {
-                          this.logger.log("Failed to close Improv client:", e);
+                          this.logger.log("关闭 Improv 客户端失败：", e);
                         }
                       }
 
-                      // Release locks and stay in firmware mode
+                      // 释放锁并保持在固件模式
                       await this._releaseReaderWriter();
-                      this.logger.log(
-                        "Returning to dashboard (device stays in firmware mode)",
-                      );
+                      this.logger.log("返回仪表板（设备保持在固件模式）");
 
                       this._state = "DASHBOARD";
                     }}
@@ -1260,26 +1232,22 @@ export class EwtInstallDialog extends LitElement {
           : html`
               <ewt-button
                 slot="primaryAction"
-                label="Continue"
+                label="继续"
                 @click=${async () => {
-                  // After WiFi provisioning: Device stays in firmware mode
-                  // Close Improv client first
+                  // Wi-Fi 配置后：设备保持在固件模式
+                  // 先关闭 Improv 客户端
                   if (this._client) {
                     try {
                       await this._closeClientWithoutEvents(this._client);
-                      this.logger.log(
-                        "Improv client closed after provisioning",
-                      );
+                      this.logger.log("配置后已关闭 Improv 客户端");
                     } catch (e) {
-                      this.logger.log("Failed to close Improv client:", e);
+                      this.logger.log("关闭 Improv 客户端失败：", e);
                     }
                   }
 
-                  // Release locks and stay in firmware mode
+                  // 释放锁并保持在固件模式
                   await this._releaseReaderWriter();
-                  this.logger.log(
-                    "Returning to dashboard (device stays in firmware mode)",
-                  );
+                  this.logger.log("返回仪表板（设备保持在固件模式）");
 
                   this._state = "DASHBOARD";
                 }}
@@ -1291,31 +1259,28 @@ export class EwtInstallDialog extends LitElement {
 
       switch (this._client!.error) {
         case ImprovSerialErrorState.UNABLE_TO_CONNECT:
-          error = "Unable to connect";
+          error = "无法连接";
           break;
 
         case ImprovSerialErrorState.NO_ERROR:
-        // Happens when list SSIDs not supported.
+        // 当列出 SSID 不受支持时会发生。
         case ImprovSerialErrorState.UNKNOWN_RPC_COMMAND:
           break;
 
         default:
-          error = `Unknown error (${this._client!.error})`;
+          error = `未知错误 (${this._client!.error})`;
       }
       content = html`
-        <div>
-          Enter the credentials of the Wi-Fi network that you want your device
-          to connect to.
-        </div>
+        <div>输入您希望设备连接的 Wi-Fi 网络的凭据。</div>
         ${error ? html`<p class="error">${error}</p>` : ""}
         ${this._ssids !== null
           ? html`
               <ewt-select
                 fixedMenuPosition
-                label="Network"
+                label="网络"
                 @selected=${(ev: { detail: { index: number } }) => {
                   const index = ev.detail.index;
-                  // The "Join Other" item is always the last item.
+                  // “其他网络”项始终是最后一项。
                   this._selectedSsid =
                     index === this._ssids!.length
                       ? null
@@ -1337,49 +1302,47 @@ export class EwtInstallDialog extends LitElement {
                   .selected=${this._selectedSsid === null}
                   value="-1"
                 >
-                  Join other…
+                  其他网络…
                 </ewt-list-item>
               </ewt-select>
             `
           : ""}
         ${
-          // Show input box if command not supported or "Join Other" selected
+          // 如果命令不受支持或选择了“其他网络”，则显示输入框
           this._selectedSsid === null
             ? html`
-                <ewt-textfield label="Network Name" name="ssid"></ewt-textfield>
+                <ewt-textfield label="网络名称" name="ssid"></ewt-textfield>
               `
             : ""
         }
         <ewt-textfield
-          label="Password"
+          label="密码"
           name="password"
           type="password"
         ></ewt-textfield>
         <ewt-button
           slot="primaryAction"
-          label="Connect"
+          label="连接"
           @click=${this._doProvision}
         ></ewt-button>
         <ewt-button
           slot="secondaryAction"
-          .label=${this._installState && this._installErase ? "Skip" : "Back"}
+          .label=${this._installState && this._installErase ? "跳过" : "返回"}
           @click=${async () => {
-            // When going back from provision: Device stays in firmware mode
-            // Close Improv client first
+            // 从配置页面返回时：设备保持在固件模式
+            // 先关闭 Improv 客户端
             if (this._client) {
               try {
                 await this._closeClientWithoutEvents(this._client);
-                this.logger.log("Improv client closed");
+                this.logger.log("Improv 客户端已关闭");
               } catch (e) {
-                this.logger.log("Failed to close Improv client:", e);
+                this.logger.log("关闭 Improv 客户端失败：", e);
               }
             }
 
-            // Release locks and stay in firmware mode
+            // 释放锁并保持在固件模式
             await this._releaseReaderWriter();
-            this.logger.log(
-              "Returning to dashboard (device stays in firmware mode)",
-            );
+            this.logger.log("返回仪表板（设备保持在固件模式）");
 
             this._state = "DASHBOARD";
           }}
@@ -1390,18 +1353,18 @@ export class EwtInstallDialog extends LitElement {
   }
 
   _renderAskErase(): [string | undefined, TemplateResult] {
-    const heading = "Erase device";
+    const heading = "擦除设备";
     const content = html`
       <div>
-        Do you want to erase the device before installing
-        ${this._manifest.name}? All data on the device will be lost.
+        您想在安装 ${this._manifest.name}
+        之前擦除设备吗？设备上的所有数据都将丢失。
       </div>
-      <ewt-formfield label="Erase device" class="danger">
+      <ewt-formfield label="擦除设备" class="danger">
         <ewt-checkbox></ewt-checkbox>
       </ewt-formfield>
       <ewt-button
         slot="primaryAction"
-        label="Next"
+        label="下一步"
         @click=${() => {
           const checkbox = this.shadowRoot!.querySelector("ewt-checkbox")!;
           this._startInstall(checkbox.checked);
@@ -1409,7 +1372,7 @@ export class EwtInstallDialog extends LitElement {
       ></ewt-button>
       <ewt-button
         slot="secondaryAction"
-        label="Back"
+        label="返回"
         @click=${() => {
           this._state = "DASHBOARD";
         }}
@@ -1428,38 +1391,37 @@ export class EwtInstallDialog extends LitElement {
     const isUpdate = !this._installErase && this._isSameFirmware;
 
     if (!this._installConfirmed && this._isSameVersion) {
-      heading = "Erase User Data";
+      heading = "擦除用户数据";
       content = html`
-        Do you want to reset your device and erase all user data from your
-        device?
+        您要重置设备并擦除设备上的所有用户数据吗？
         <ewt-button
           class="danger"
           slot="primaryAction"
-          label="Erase User Data"
+          label="擦除用户数据"
           @click=${this._confirmInstall}
         ></ewt-button>
       `;
     } else if (!this._installConfirmed) {
-      heading = "Confirm Installation";
-      const action = isUpdate ? "update to" : "install";
+      heading = "确认安装";
+      const action = isUpdate ? "更新到" : "安装";
       content = html`
         ${isUpdate
-          ? html`Your device is running
+          ? html`您的设备正在运行
               ${this._info!.firmware}&nbsp;${this._info!.version}.<br /><br />`
           : ""}
-        Do you want to ${action}
-        ${this._manifest.name}&nbsp;${this._manifest.version}?
+        您要 ${action} ${this._manifest.name}&nbsp;${this._manifest.version}
+        吗？
         ${this._installErase
-          ? html`<br /><br />All data on the device will be erased.`
+          ? html`<br /><br />设备上的所有数据将被擦除。`
           : ""}
         <ewt-button
           slot="primaryAction"
-          label="Install"
+          label="安装"
           @click=${this._confirmInstall}
         ></ewt-button>
         <ewt-button
           slot="secondaryAction"
-          label="Back"
+          label="返回"
           @click=${() => {
             this._state = "DASHBOARD";
           }}
@@ -1471,41 +1433,41 @@ export class EwtInstallDialog extends LitElement {
       this._installState.state === FlashStateType.MANIFEST ||
       this._installState.state === FlashStateType.PREPARING
     ) {
-      heading = "Installing";
-      content = this._renderProgress("Preparing installation");
+      heading = "正在安装";
+      content = this._renderProgress("准备安装");
       hideActions = true;
     } else if (this._installState.state === FlashStateType.ERASING) {
-      heading = "Installing";
-      content = this._renderProgress("Erasing");
+      heading = "正在安装";
+      content = this._renderProgress("正在擦除");
       hideActions = true;
     } else if (
       this._installState.state === FlashStateType.WRITING ||
-      // When we're finished, keep showing this screen with 100% written
-      // until Improv is initialized / not detected.
-      // EXCEPTION: USB-JTAG/OTG devices skip this (they show reconnect message instead)
+      // 完成后，保持此屏幕显示 100% 写入进度
+      // 直到 Improv 初始化完成或未检测到。
+      // 例外：USB-JTAG/OTG 设备跳过此项（它们显示重新连接消息）
       (this._installState.state === FlashStateType.FINISHED &&
         this._client === undefined &&
         !this._isUsbJtagOrOtgDevice)
     ) {
-      heading = "Installing";
+      heading = "正在安装";
       let percentage: number | undefined;
       let undeterminateLabel: string | undefined;
       if (this._installState.state === FlashStateType.FINISHED) {
-        // We're done writing and detecting improv, show spinner
-        undeterminateLabel = "Wrapping up";
+        // 写入完成并检测 improv，显示旋转器
+        undeterminateLabel = "收尾";
       } else if (this._installState.details.percentage < 4) {
-        // We're writing the firmware under 4%, show spinner or else we don't show any pixels
-        undeterminateLabel = "Installing";
+        // 固件写入低于 4%，显示旋转器，否则我们不显示任何像素
+        undeterminateLabel = "正在安装";
       } else {
-        // We're writing the firmware over 4%, show progress bar
+        // 固件写入超过 4%，显示进度条
         percentage = this._installState.details.percentage;
       }
       content = this._renderProgress(
         html`
           ${undeterminateLabel ? html`${undeterminateLabel}<br />` : ""}
           <br />
-          This will take a minute.<br />
-          Keep this page visible until installation is complete.
+          ‌这需要一分钟。<br />
+          在安装完成前保持此页面可见。
         `,
         percentage,
       );
@@ -1514,19 +1476,19 @@ export class EwtInstallDialog extends LitElement {
       this._installState.state === FlashStateType.FINISHED &&
       !this._isUsbJtagOrOtgDevice
     ) {
-      // NOTE: USB-JTAG/OTG devices go directly to REQUEST_PORT_SELECTION
-      // This is only for external serial chips
+      // 注意：USB-JTAG/OTG 设备直接进入 REQUEST_PORT_SELECTION
+      // 这仅适用于外部串行芯片
       heading = undefined;
       const supportsImprov = this._client !== null;
 
       content = html`
         <ewt-page-message
           .icon=${OK_ICON}
-          label="Installation complete!"
+          label="安装完成！"
         ></ewt-page-message>
         <ewt-button
           slot="primaryAction"
-          label="Next"
+          label="下一步"
           @click=${() => {
             this._state =
               supportsImprov && this._installErase ? "PROVISION" : "DASHBOARD";
@@ -1534,7 +1496,7 @@ export class EwtInstallDialog extends LitElement {
         ></ewt-button>
       `;
     } else if (this._installState.state === FlashStateType.ERROR) {
-      heading = "Installation failed";
+      heading = "安装失败";
       content = html`
         <ewt-page-message
           .icon=${ERROR_ICON}
@@ -1542,10 +1504,10 @@ export class EwtInstallDialog extends LitElement {
         ></ewt-page-message>
         <ewt-button
           slot="primaryAction"
-          label="Back"
+          label="返回"
           @click=${async () => {
-            this._improvChecked = false; // Force Improv re-test
-            await this._initialize(); // Re-test Improv after failed flash
+            this._improvChecked = false; // 强制重新测试 Improv
+            await this._initialize(); // 刷写失败后重新测试 Improv
             this._state = "DASHBOARD";
           }}
         ></ewt-button>
@@ -1555,7 +1517,7 @@ export class EwtInstallDialog extends LitElement {
   }
 
   _renderLogs(): [string | undefined, TemplateResult, boolean] {
-    let heading: string | undefined = `Logs`;
+    let heading: string | undefined = `日志`;
     let content: TemplateResult;
     let hideActions = false;
 
@@ -1567,25 +1529,23 @@ export class EwtInstallDialog extends LitElement {
       ></ewt-console>
       <ewt-button
         slot="primaryAction"
-        label="Back"
+        label="返回"
         @click=${async () => {
           await this.shadowRoot!.querySelector("ewt-console")!.disconnect();
 
-          // After console: ESP stays in firmware mode
-          // Device will only switch to bootloader mode when "Install" or "Manage Filesystem" is clicked
+          // 控制台后：ESP 保持在固件模式
+          // 仅当点击“安装”或“管理文件系统”时，设备才会切换到引导加载器模式
           await this._releaseReaderWriter();
-          this.logger.log(
-            "Returning to dashboard (device stays in firmware mode)",
-          );
+          this.logger.log("返回仪表板（设备保持在固件模式）");
 
           this._state = "DASHBOARD";
-          // Don't reset _improvChecked - console only reads, doesn't change firmware
+          // 不重置 _improvChecked - 控制台只读取，不更改固件
           await this._initialize();
         }}
       ></ewt-button>
       <ewt-button
         slot="secondaryAction"
-        label="Download Logs"
+        label="下载日志"
         @click=${() => {
           textDownload(
             this.shadowRoot!.querySelector("ewt-console")!.logs(),
@@ -1597,7 +1557,7 @@ export class EwtInstallDialog extends LitElement {
       ></ewt-button>
       <ewt-button
         slot="secondaryAction"
-        label="Reset Device"
+        label="重置设备"
         @click=${async () => {
           await this.shadowRoot!.querySelector("ewt-console")!.reset();
         }}
@@ -1608,27 +1568,27 @@ export class EwtInstallDialog extends LitElement {
   }
 
   _renderPartitions(): [string | undefined, TemplateResult, boolean] {
-    const heading = "Partition Table";
+    const heading = "分区表";
     let content: TemplateResult;
     const hideActions = false;
 
     if (this._busy) {
-      content = this._renderProgress("Reading partition table...");
+      content = this._renderProgress("读取分区表...");
     } else if (!this._partitions || this._partitions.length === 0) {
       content = html`
         <ewt-page-message
           .icon=${ERROR_ICON}
-          label="No partitions found"
+          label="未找到分区"
         ></ewt-page-message>
         <ewt-button
           slot="primaryAction"
-          label="Back"
+          label="返回"
           @click=${async () => {
-            // Just release locks and go back to dashboard
-            // Device stays in firmware mode (no need to switch)
+            // 仅释放锁并返回仪表板
+            // 设备保持在固件模式（无需切换）
             await this._releaseReaderWriter();
             this._state = "DASHBOARD";
-            // Don't reset _improvChecked - status is still valid after console operations
+            // 不重置 _improvChecked - 控制台操作后状态仍然有效
           }}
         ></ewt-button>
       `;
@@ -1638,12 +1598,12 @@ export class EwtInstallDialog extends LitElement {
           <table class="partition-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>SubType</th>
-                <th>Offset</th>
-                <th>Size</th>
-                <th>Action</th>
+                <th>名称</th>
+                <th>类型</th>
+                <th>子类型</th>
+                <th>偏移量</th>
+                <th>大小</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -1659,7 +1619,7 @@ export class EwtInstallDialog extends LitElement {
                       ${partition.type === 0x01 && partition.subtype === 0x82
                         ? html`
                             <ewt-button
-                              label="Open FS"
+                              label="打开文件系统"
                               @click=${() => this._openFilesystem(partition)}
                             ></ewt-button>
                           `
@@ -1673,24 +1633,24 @@ export class EwtInstallDialog extends LitElement {
         </div>
         <ewt-button
           slot="primaryAction"
-          label="Back"
+          label="返回"
           @click=${async () => {
             try {
-              // For USB-JTAG/OTG: Need to re-initialize after port changes
-              // For External Serial: Just go back to dashboard
+              // 对于 USB-JTAG/OTG：端口更改后需要重新初始化
+              // 对于外部串行：仅返回仪表板
               if (this._isUsbJtagOrOtgDevice) {
                 this._state = "DASHBOARD";
                 await this._initialize();
               } else {
-                // External serial - just go back, device stays in bootloader mode
+                // 外部串行 - 仅返回，设备保持在引导加载器模式
                 this._state = "DASHBOARD";
-                // Ensure _busy is false so buttons are enabled
+                // 确保 _busy 为 false 以便按钮启用
                 this._busy = false;
               }
             } catch (err: any) {
-              this.logger.error(`Partitions Back error: ${err.message}`);
+              this.logger.error(`分区返回错误：${err.message}`);
               this._state = "ERROR";
-              this._error = `Failed to return to dashboard: ${err.message}`;
+              this._error = `返回仪表板失败：${err.message}`;
               this._busy = false;
             }
           }}
@@ -1728,15 +1688,15 @@ export class EwtInstallDialog extends LitElement {
     this._partitions = undefined;
 
     try {
-      this.logger.log("Reading partition table from 0x8000...");
+      this.logger.log("从 0x8000 读取分区表...");
 
-      // Ensure stub is initialized
+      // 确保存根已初始化
       const espStub = await this._ensureStub();
 
-      // Add a small delay after stub is running
+      // 存根运行后添加一个小延迟
       await sleep(100);
 
-      this.logger.log("Reading flash data...");
+      this.logger.log("读取闪存数据...");
       const data = await espStub.readFlash(
         PARTITION_TABLE_OFFSET,
         PARTITION_TABLE_SIZE,
@@ -1745,38 +1705,38 @@ export class EwtInstallDialog extends LitElement {
       const partitions = parsePartitionTable(data);
 
       if (partitions.length === 0) {
-        this.logger.log("No valid partition table found");
+        this.logger.log("未找到有效的分区表");
         this._partitions = [];
       } else {
-        this.logger.log(`Found ${partitions.length} partition(s)`);
+        this.logger.log(`找到 ${partitions.length} 个分区`);
         this._partitions = partitions;
       }
     } catch (e: any) {
-      this.logger.error(`Failed to read partition table: ${e.message || e}`);
+      this.logger.error(`读取分区表失败：${e.message || e}`);
 
       if (e.message === "Port selection cancelled") {
         await this._releaseReaderWriter();
-        this._error = "Port selection cancelled";
+        this._error = "端口选择已取消";
         this._state = "ERROR";
       } else if (e.message && e.message.includes("Failed to connect")) {
-        // Connection error - show error state so user can retry
+        // 连接错误 - 显示错误状态以便用户重试
         await this._releaseReaderWriter();
         this._error = e.message;
         this._state = "ERROR";
       } else {
-        // Other errors (like parsing errors) - just show empty partition list
-        this.logger.log("Returning to partition view with no partitions");
+        // 其他错误（如解析错误）- 仅显示空分区列表
+        this.logger.log("返回分区视图，无分区");
         this._partitions = [];
       }
     } finally {
-      // DON'T release reader/writer locks here!
-      // Keep them so the stub remains usable for:
-      // - Multiple partition reads
-      // - Opening filesystem
-      // The locks will be released when:
-      // - User clicks "Back" to dashboard (calls _initialize)
-      // - User clicks "Install Firmware" (flash.ts releases them)
-      // - Dialog is closed (calls _handleClose)
+      // 不要在此处释放 reader/writer 锁！
+      // 保持它们以便存根可用于：
+      // - 多次分区读取
+      // - 打开文件系统
+      // 锁将在以下情况释放：
+      // - 用户点击“返回”到仪表板（调用 _initialize）
+      // - 用户点击“安装固件”（flash.ts 释放它们）
+      // - 对话框关闭（调用 _handleClose）
 
       this._busy = false;
     }
@@ -1785,13 +1745,11 @@ export class EwtInstallDialog extends LitElement {
   private async _openFilesystem(partition: Partition) {
     try {
       this._busy = true;
-      this.logger.log(
-        `Detecting filesystem type for partition "${partition.name}"...`,
-      );
+      this.logger.log(`检测分区 "${partition.name}" 的文件系统类型...`);
 
-      // Check if ESP stub is still available
+      // 检查 ESP 存根是否仍然可用
       if (!this._espStub) {
-        throw new Error("ESP stub not available. Please reconnect.");
+        throw new Error("ESP 存根不可用。请重新连接。");
       }
 
       const fsType = await detectFilesystemType(
@@ -1800,25 +1758,23 @@ export class EwtInstallDialog extends LitElement {
         partition.size,
         this.logger,
       );
-      this.logger.log(`Detected filesystem: ${fsType}`);
+      this.logger.log(`检测到的文件系统：${fsType}`);
 
       if (fsType === "littlefs") {
         this._selectedPartition = partition;
         this._state = "LITTLEFS";
       } else if (fsType === "spiffs") {
-        this.logger.error(
-          "SPIFFS support not yet implemented. Use LittleFS partitions.",
-        );
-        this._error = "SPIFFS support not yet implemented";
+        this.logger.error("SPIFFS 支持尚未实现。请使用 LittleFS 分区。");
+        this._error = "SPIFFS 支持尚未实现";
         this._state = "ERROR";
       } else {
-        this.logger.error("Unknown filesystem type. Cannot open partition.");
-        this._error = "Unknown filesystem type";
+        this.logger.error("未知的文件系统类型。无法打开分区。");
+        this._error = "未知的文件系统类型";
         this._state = "ERROR";
       }
     } catch (e: any) {
-      this.logger.error(`Failed to open filesystem: ${e.message || e}`);
-      this._error = `Failed to open filesystem: ${e.message || e}`;
+      this.logger.error(`打开文件系统失败：${e.message || e}`);
+      this._error = `打开文件系统失败：${e.message || e}`;
       this._state = "ERROR";
     } finally {
       this._busy = false;
@@ -1839,16 +1795,15 @@ export class EwtInstallDialog extends LitElement {
     if (!changedProps.has("_state")) {
       return;
     }
-    // Clear errors when changing between pages unless we change
-    // to the error page.
+    // 在页面之间切换时清除错误，除非切换到错误页面
     if (this._state !== "ERROR") {
       this._error = undefined;
     }
-    // Scan for SSIDs on provision
+    // 在配置页面扫描 SSID
     if (this._state === "PROVISION") {
       this._updateSsids();
     } else {
-      // Reset this value if we leave provisioning.
+      // 如果离开配置页面，重置此值
       this._provisionForce = false;
     }
 
@@ -1866,7 +1821,7 @@ export class EwtInstallDialog extends LitElement {
     try {
       ssids = await this._client!.scan();
     } catch (err) {
-      // When we fail while loading, pick "Join other"
+      // 加载失败时，选择“其他网络”
       if (this._ssids === undefined) {
         this._ssids = null;
         this._selectedSsid = null;
@@ -1875,11 +1830,9 @@ export class EwtInstallDialog extends LitElement {
       return;
     }
 
-    // We will retry a few times if we don't get any results
+    // 如果没有结果，我们将重试几次
     if (ssids.length === 0 && tries < 3) {
-      this.logger.log(
-        `SSID scan returned empty, scheduling retry ${tries + 1}/3`,
-      );
+      this.logger.log(`SSID 扫描返回空，安排重试 ${tries + 1}/3`);
       setTimeout(() => {
         if (this._state === "PROVISION") {
           this._updateSsids(tries + 1);
@@ -1896,7 +1849,7 @@ export class EwtInstallDialog extends LitElement {
   protected override firstUpdated(changedProps: PropertyValues) {
     super.firstUpdated(changedProps);
 
-    // Wrap logger to also log to debug component
+    // 包装记录器以同时记录到调试组件
     const originalLogger = this.logger;
     this.logger = {
       log: (msg: string, ...args: any[]) => {
@@ -1912,10 +1865,10 @@ export class EwtInstallDialog extends LitElement {
       },
     };
 
-    // CRITICAL: Set logger on esploader so we can see logs from enterConsoleMode() etc.
+    // 关键：在 esploader 上设置记录器，以便我们可以看到来自 enterConsoleMode() 等的日志
     this.esploader.logger = this.logger;
 
-    this._initialize(); // Initial connect - test Improv
+    this._initialize(); // 初始连接 - 测试 Improv
   }
 
   protected override updated(changedProps: PropertyValues) {
@@ -1930,10 +1883,10 @@ export class EwtInstallDialog extends LitElement {
     }
 
     if (changedProps.has("_selectedSsid") && this._selectedSsid === null) {
-      // If we pick "Join other", select SSID input.
+      // 如果选择“其他网络”，聚焦 SSID 输入框
       this._focusFormElement("ewt-textfield[name=ssid]");
     } else if (changedProps.has("_ssids")) {
-      // Form is shown when SSIDs are loaded/marked not supported
+      // 当 SSID 加载完毕/标记为不支持时显示表单
       this._focusFormElement();
     }
   }
@@ -1951,32 +1904,32 @@ export class EwtInstallDialog extends LitElement {
     if (this._port.readable === null || this._port.writable === null) {
       this._state = "ERROR";
       this._error =
-        "Serial port is not readable/writable. Close any other application using it and try again.";
+        "串行端口不可读/写。请关闭任何其他使用它的应用程序，然后重试。";
       return;
     }
 
-    // Set busy flag during initialization
+    // 初始化期间设置忙碌标志
     this._busy = true;
-    this.requestUpdate(); // Force UI update to disable buttons immediately
+    this.requestUpdate(); // 强制 UI 更新以立即禁用按钮
 
     try {
-      // If local file upload via browser is used, we already provide a manifest as a JSON string and not a URL to it
+      // 如果通过浏览器使用本地文件上传，我们提供一个清单作为 JSON 字符串，而不是 URL
       this._manifest = JSON.parse(this.manifestPath);
     } catch {
-      // Standard procedure - download manifest.json with provided URL
+      // 标准流程 - 使用提供的 URL 下载 manifest.json
       try {
         this._manifest = await downloadManifest(this.manifestPath);
       } catch (err: any) {
         this._state = "ERROR";
-        this._error = "Failed to download manifest";
+        this._error = "下载清单失败";
         this._busy = false;
         return;
       }
     }
 
-    // Skip Improv if requested (e.g., when returning from console or filesystem manager)
+    // 如果请求，跳过 Improv（例如，从控制台或文件系统管理器返回时）
     if (skipImprov) {
-      this.logger.log("Skipping Improv test (not needed for this operation)");
+      this.logger.log("跳过 Improv 测试（此操作不需要）");
       this._client = null;
       this._improvChecked = true;
       this._busy = false;
@@ -1991,155 +1944,149 @@ export class EwtInstallDialog extends LitElement {
       return;
     }
 
-    // Skip Improv if we already checked (avoid repeated attempts)
+    // 如果已经检查过，跳过 Improv（避免重复尝试）
     if (this._improvChecked) {
       this.logger.log(
-        `Improv already checked - ${this._improvSupported ? "supported" : "not supported"}, skipping re-test`,
+        `Improv 已检查 - ${this._improvSupported ? "支持" : "不支持"}，跳过重新测试`,
       );
-      // Ensure _client state is valid for UI rendering
+      // 确保 _client 状态对 UI 渲染有效
       if (!this._improvSupported) {
-        // Not supported - ensure it's explicitly null for UI
+        // 不支持 - 确保显式为 null 供 UI 使用
         this._client = null;
       }
       this._busy = false;
-      this.requestUpdate(); // Force UI update
+      this.requestUpdate(); // 强制 UI 更新
       return;
     }
 
-    // Skip Improv if we already have a working client
+    // 如果已经有工作客户端，跳过 Improv
     if (this._client) {
-      this.logger.log("Improv client already active, skipping initialization");
-      this._improvSupported = true; // If we have a client, Improv is supported
+      this.logger.log("Improv 客户端已活动，跳过初始化");
+      this._improvSupported = true; // 如果有客户端，Improv 受支持
       this._improvChecked = true;
       this._busy = false;
       return;
     }
 
-    // Check if device is using USB-JTAG or USB-OTG (not external serial chip)
+    // 检查设备是否使用 USB-JTAG 或 USB-OTG（非外部串行芯片）
     const isUsbJtagOrOtg = await this._isUsbJtagOrOtg();
-    this._isUsbJtagOrOtgDevice = isUsbJtagOrOtg; // Update state for UI
+    this._isUsbJtagOrOtgDevice = isUsbJtagOrOtg; // 更新 UI 状态
 
-    // Check if device is in bootloader mode
-    // If yes, switch to firmware mode first (needed for Improv)
+    // 检查设备是否处于引导加载器模式
+    // 如果是，首先切换到固件模式（Improv 需要）
     const inBootloaderMode = this.esploader.chipFamily !== null;
 
     if (inBootloaderMode) {
       this.logger.log(
-        "Device is in BOOTLOADER mode - switching to FIRMWARE mode for Improv test",
+        "设备处于 BOOTLOADER 模式 - 切换到 FIRMWARE 模式以进行 Improv 测试",
       );
 
       if (isUsbJtagOrOtg) {
-        // USB-JTAG/OTG: Need WDT reset → port closes → user must select new port
-        this.logger.log(
-          "USB-JTAG/OTG device - need to switch to firmware mode",
-        );
+        // USB-JTAG/OTG：需要 WDT 重置 → 端口关闭 → 用户必须选择新端口
+        this.logger.log("USB-JTAG/OTG 设备 - 需要切换到固件模式");
 
         try {
-          // CRITICAL: Ensure chipFamily is set before calling resetToFirmware()
+          // 关键：在调用 resetToFirmware() 前确保 chipFamily 已设置
           if (!this.esploader.chipFamily) {
-            this.logger.log("Detecting chip type...");
+            this.logger.log("检测芯片类型...");
             await this.esploader.initialize();
-            this.logger.log(`Chip detected: ${this.esploader.chipFamily}`);
+            this.logger.log(`芯片已检测：${this.esploader.chipFamily}`);
           }
 
-          // CRITICAL: Create stub before reset
+          // 关键：在重置前创建存根
           if (!this._espStub) {
-            this.logger.log("Creating stub for firmware mode switch...");
+            this.logger.log("为固件模式切换创建存根...");
             this._espStub = await this.esploader.runStub();
-            this.logger.log(`Stub created: IS_STUB=${this._espStub.IS_STUB}`);
+            this.logger.log(`存根已创建：IS_STUB=${this._espStub.IS_STUB}`);
           }
 
-          // CRITICAL: Save parent loader
+          // 关键：保存父加载器
           const loaderToSave = this._espStub._parent || this._espStub;
           (this as any)._savedLoaderBeforeConsole = loaderToSave;
 
-          // CRITICAL: Release locks BEFORE calling resetToFirmware()
+          // 关键：在调用 resetToFirmware() 前释放锁
           await this._releaseReaderWriter();
 
-          // CRITICAL: Forget the old port so browser doesn't show it in selection
+          // 关键：忘记旧端口，以免浏览器在选择中显示它
           try {
             await this._port.forget();
-            this.logger.log("Old port forgotten");
+            this.logger.log("旧端口已忘记");
           } catch (forgetErr: any) {
-            this.logger.log(`Port forget failed: ${forgetErr.message}`);
+            this.logger.log(`忘记端口失败：${forgetErr.message}`);
           }
 
-          // Use resetToFirmware() which handles WDT reset and port close
+          // 使用 resetToFirmware() 处理 WDT 重置和端口关闭
           await this.esploader.resetToFirmware();
-          this.logger.log("Device reset to firmware mode - port closed");
+          this.logger.log("设备已重置到固件模式 - 端口已关闭");
         } catch (err: any) {
-          this.logger.debug(
-            `Reset to firmware error (expected): ${err.message}`,
-          );
+          this.logger.debug(`重置到固件错误（预期内）：${err.message}`);
         }
 
-        // Reset ESP state (port is already closed by resetToFirmware)
+        // 重置 ESP 状态（端口已由 resetToFirmware 关闭）
         await sleep(100);
 
         this._espStub = undefined;
         this.esploader.IS_STUB = false;
         this.esploader.chipFamily = null;
-        this._improvChecked = false; // Will check after user reconnects
+        this._improvChecked = false; // 用户重新连接后将检查
         this._client = undefined;
         this._improvSupported = false;
         this.esploader._reader = undefined;
 
-        this.logger.log("Waiting for user to select new port");
+        this.logger.log("等待用户选择新端口");
 
-        // Show port selection UI
+        // 显示端口选择 UI
         this._state = "REQUEST_PORT_SELECTION";
         this._error = "";
         this._busy = false;
         return;
       } else {
-        // External serial chip: Can reset to firmware without port change
-        this.logger.log("External serial chip - resetting to firmware mode");
+        // 外部串行芯片：可以重置到固件模式而无需端口更改
+        this.logger.log("外部串行芯片 - 重置到固件模式");
 
         try {
           await this._resetDeviceAndReleaseLocks();
-          await sleep(500); // Wait for firmware to start
+          await sleep(500); // 等待固件启动
         } catch (err: any) {
-          this.logger.log(`Reset to firmware failed: ${err.message}`);
+          this.logger.log(`重置到固件失败：${err.message}`);
         }
       }
     } else {
-      this.logger.log(
-        "Device is already in FIRMWARE mode - ready for Improv test",
-      );
+      this.logger.log("设备已处于 FIRMWARE 模式 - 准备进行 Improv 测试");
     }
 
-    // Ensure streams are ready before Improv test (like Console does)
-    // This is the ONLY place we call _releaseReaderWriter before Improv test
+    // 在 Improv 测试前确保流已就绪（如控制台所做）
+    // 这是我们在 Improv 测试前调用 _releaseReaderWriter 的唯一地方
     try {
       await this._releaseReaderWriter();
       await sleep(200);
-      this.logger.log("Streams ready for Improv test");
+      this.logger.log("流已准备好进行 Improv 测试");
     } catch (err: any) {
-      this.logger.log(`Failed to prepare streams: ${err.message}`);
+      this.logger.log(`准备流失败：${err.message}`);
     }
 
-    // Don't switch to bootloader on initial connect!
-    // Just test Improv directly - device should now be in firmware mode
-    this.logger.log("Testing Improv (device is in firmware mode)");
+    // 初始连接时不要切换到引导加载器！
+    // 直接测试 Improv - 设备现在应处于固件模式
+    this.logger.log("测试 Improv（设备处于固件模式）");
 
-    // Calculate timeout for Improv test
-    // Use longer timeout for initial connect to allow device to get IP address (can take 8+ seconds)
+    // 计算 Improv 测试的超时时间
+    // 对于初始连接使用较长的超时时间，以允许设备获取 IP 地址（可能需要 8 秒以上）
     const timeout = !justInstalled
       ? 10000
       : this._manifest.new_install_improv_wait_time !== undefined
         ? this._manifest.new_install_improv_wait_time * 1000
         : 10000;
 
-    // Call Improv test with skipReset=true (already reset in _resetDeviceAndReleaseLocks)
+    // 调用 Improv 测试，skipReset=true（已在 _resetDeviceAndReleaseLocks 中重置）
     await this._testImprov(timeout, true);
   }
 
   /**
-   * Switch device from bootloader mode to firmware mode.
-   * For USB-JTAG/OTG devices: Requires port reconnection (sets REQUEST_PORT_SELECTION state).
-   * For external serial: Resets device without port change.
+   * 将设备从引导加载器模式切换到固件模式。
+   * 对于 USB-JTAG/OTG 设备：需要端口重新连接（设置 REQUEST_PORT_SELECTION 状态）。
+   * 对于外部串行：重置设备而不更改端口。
    *
-   * @param actionAfterReconnect - Action to perform after reconnect: 'console', 'visit', 'homeassistant', 'wifi', or null
+   * @param actionAfterReconnect - 重新连接后要执行的操作：'console', 'visit', 'homeassistant', 'wifi' 或 null
    */
   private async _switchToFirmwareMode(
     actionAfterReconnect:
@@ -2152,79 +2099,79 @@ export class EwtInstallDialog extends LitElement {
     const inBootloaderMode = this.esploader.chipFamily !== null;
 
     if (!inBootloaderMode) {
-      this.logger.log("Device already in firmware mode");
+      this.logger.log("设备已处于固件模式");
 
-      // If opening console for the FIRST time, do a reset to ensure device is ready
+      // 如果是第一次打开控制台，进行重置以确保设备就绪
       if (actionAfterReconnect === "console" && !this._consoleInitialized) {
-        this.logger.log("First console open - resetting device...");
+        this.logger.log("首次打开控制台 - 重置设备...");
         this._consoleInitialized = true;
         try {
           await this.esploader.hardReset(false);
-          this.logger.log("Device reset completed");
+          this.logger.log("设备重置完成");
         } catch (err: any) {
-          this.logger.log(`Reset error (expected): ${err.message}`);
+          this.logger.log(`重置错误（预期内）：${err.message}`);
         }
       }
 
-      // Even if already in firmware mode, ensure streams are ready
-      // This is needed for WebUSB after closing Improv client
+      // 即使已处于固件模式，也要确保流就绪
+      // 这对于关闭 Improv 客户端后的 WebUSB 是必需的
       await this._releaseReaderWriter();
 
-      return false; // No switch needed
+      return false; // 无需切换
     }
 
     this.logger.log(
-      `Device is in bootloader mode - switching to firmware for ${actionAfterReconnect || "operation"}`,
+      `设备处于引导加载器模式 - 切换到固件以进行 ${actionAfterReconnect || "操作"}`,
     );
 
-    // CRITICAL: Ensure chipFamily is set
+    // 关键：确保 chipFamily 已设置
     if (!this.esploader.chipFamily) {
-      this.logger.log("Detecting chip type...");
+      this.logger.log("检测芯片类型...");
       await this.esploader.initialize();
-      this.logger.log(`Chip detected: ${this.esploader.chipFamily}`);
+      this.logger.log(`芯片已检测：${this.esploader.chipFamily}`);
     }
 
-    // CRITICAL: Create stub before reset
+    // 关键：在重置前创建存根
     if (!this._espStub) {
-      this.logger.log("Creating stub for firmware mode switch...");
+      this.logger.log("为固件模式切换创建存根...");
       this._espStub = await this.esploader.runStub();
-      this.logger.log(`Stub created: IS_STUB=${this._espStub.IS_STUB}`);
+      this.logger.log(`存根已创建：IS_STUB=${this._espStub.IS_STUB}`);
     }
 
-    // CRITICAL: Set baudrate to 115200 BEFORE switching
+    // 关键：在切换前将波特率设置为 115200
     await this._resetBaudrateForConsole();
 
-    // CRITICAL: Save parent loader
+    // 关键：保存父加载器
     const loaderToSave = this._espStub._parent || this._espStub;
     (this as any)._savedLoaderBeforeSwitch = loaderToSave;
 
-    // Check if USB-JTAG/OTG device
+    // 检查是否为 USB-JTAG/OTG 设备
     const isUsbJtagOrOtg = await this._isUsbJtagOrOtg();
 
     if (isUsbJtagOrOtg) {
-      // USB-JTAG/OTG: Need WDT reset and port reconnection
+      // USB-JTAG/OTG：需要 WDT 重置和端口重新连接
 
-      // CRITICAL: Release locks BEFORE calling resetToFirmware()
-      this.logger.log("Releasing reader/writer...");
+      // 关键：在调用 resetToFirmware() 前释放锁
+      this.logger.log("释放 reader/writer...");
       await this._releaseReaderWriter();
 
       try {
-        // CRITICAL: Forget the old port
+        // 关键：忘记旧端口
         try {
           await this._port.forget();
-          this.logger.log("Old port forgotten");
+          this.logger.log("旧端口已忘记");
         } catch (forgetErr: any) {
-          this.logger.log(`Port forget failed: ${forgetErr.message}`);
+          this.logger.log(`忘记端口失败：${forgetErr.message}`);
         }
 
-        // Use resetToFirmware() for CDC this is doing a WDT reset
+        // 对 CDC 使用 resetToFirmware()，这是执行 WDT 重置
         await this.esploader.resetToFirmware();
-        this.logger.log("Device reset to firmware mode - port closed");
+        this.logger.log("设备已重置到固件模式 - 端口已关闭");
       } catch (err: any) {
-        this.logger.debug(`Reset to firmware error (expected): ${err.message}`);
+        this.logger.debug(`重置到固件错误（预期内）：${err.message}`);
       }
 
-      // Reset ESP state
+      // 重置 ESP 状态
       await sleep(100);
 
       this._espStub = undefined;
@@ -2235,7 +2182,7 @@ export class EwtInstallDialog extends LitElement {
       this._improvSupported = false;
       this.esploader._reader = undefined;
 
-      // Set flag for action after reconnect
+      // 设置重新连接后的操作标志
       if (actionAfterReconnect === "console") {
         this._openConsoleAfterReconnect = true;
       } else if (actionAfterReconnect === "visit") {
@@ -2246,48 +2193,46 @@ export class EwtInstallDialog extends LitElement {
         this._changeWiFiAfterReconnect = true;
       }
 
-      this.logger.log("Waiting for user to select new port");
+      this.logger.log("等待用户选择新端口");
 
-      // Show port selection UI
+      // 显示端口选择 UI
       this._state = "REQUEST_PORT_SELECTION";
       this._error = "";
       this._busy = false;
-      return true; // Port reconnection needed
+      return true; // 需要端口重新连接
     } else {
-      // External serial chip: Can reset to firmware without port change
-      this.logger.log("External serial chip - resetting to firmware mode");
+      // 外部串行芯片：可以重置到固件模式而无需端口更改
+      this.logger.log("外部串行芯片 - 重置到固件模式");
 
       try {
-        // CRITICAL: Call hardReset BEFORE releasing locks (so it can communicate)
-        await this.esploader.hardReset(false); // false = firmware mode
-        this.logger.log("Device reset to firmware mode");
+        // 关键：在释放锁前调用 hardReset（以便它能通信）
+        await this.esploader.hardReset(false); // false = 固件模式
+        this.logger.log("设备已重置到固件模式");
       } catch (err: any) {
-        this.logger.log(
-          `Reset worked. Expected slip Timeout read error: ${err.message}`,
-        );
+        this.logger.log(`重置成功。预期的超时读取错误：${err.message}`);
       }
 
-      // Wait for reset to complete
+      // 等待重置完成
       await sleep(500);
 
-      // NOW release locks AFTER reset
-      this.logger.log("Releasing reader/writer after reset...");
+      // 现在在重置后释放锁
+      this.logger.log("重置后释放 reader/writer...");
       await this._releaseReaderWriter();
 
-      // Reset ESP state
+      // 重置 ESP 状态
       this._espStub = undefined;
       this.esploader.IS_STUB = false;
       this.esploader.chipFamily = null;
 
       try {
-        // Do a hardReset to start firmware
-        await this.esploader.hardReset(false); // false = firmware mode
-        this.logger.log("Device in firmware mode, start firmware with reset");
+        // 执行 hardReset 以启动固件
+        await this.esploader.hardReset(false); // false = 固件模式
+        this.logger.log("设备处于固件模式，通过重置启动固件");
       } catch (err: any) {
-        this.logger.log(`Reset error: ${err.message}`);
+        this.logger.log(`重置错误：${err.message}`);
       }
 
-      return false; // No port reconnection needed
+      return false; // 无需端口重新连接
     }
   }
 
@@ -2306,66 +2251,60 @@ export class EwtInstallDialog extends LitElement {
     }
     this._client = undefined;
 
-    // For flash operations, we MUST be in bootloader mode
-    // This is the ONLY place where we switch to bootloader (not on initial connect)
-    this.logger.log(
-      "Preparing device for flash operations (switching to bootloader mode)...",
-    );
+    // 对于刷写操作，我们必须处于引导加载器模式
+    // 这是唯一切换到引导加载器的地方（不是初始连接）
+    this.logger.log("准备设备进行刷写操作（切换到引导加载器模式）...");
 
     try {
       await this._prepareForFlashOperations();
     } catch (err: any) {
-      this.logger.log(`Failed to prepare for flash: ${err.message}`);
+      this.logger.log(`准备刷写失败：${err.message}`);
       this._state = "ERROR";
-      this._error = `Failed to enter bootloader mode: ${err.message}`;
+      this._error = `进入引导加载器模式失败：${err.message}`;
       return;
     }
 
-    // Ensure stub is initialized before flash
+    // 在刷写前确保存根已初始化
     try {
       await this._ensureStub();
     } catch (err: any) {
-      // Connection failed - show error to user
+      // 连接失败 - 向用户显示错误
       this._state = "ERROR";
       this._error = err.message;
       return;
     }
 
-    // Use the stub for flash
+    // 使用存根进行刷写
     const loaderToUse = this._espStub!;
 
     if (this.firmwareFile != undefined) {
-      // If a uploaded File was provided -> create Uint8Array of content
+      // 如果提供了上传的文件 -> 创建内容的 Uint8Array
       new Blob([this.firmwareFile])
         .arrayBuffer()
         .then((b) => this._flashFilebuffer(new Uint8Array(b)));
     } else {
-      // Use "standard way" with URL to manifest and firmware binary
+      // 使用“标准方式”使用 URL 到清单和固件二进制文件
       flash(
         async (state) => {
           this._installState = state;
 
           if (state.state === FlashStateType.FINISHED) {
-            // For USB-JTAG/OTG, wait for cleanup before showing port selection
+            // 对于 USB-JTAG/OTG，在显示端口选择前等待清理完成
             const isUsbJtagOrOtg = await this._isUsbJtagOrOtg();
             if (isUsbJtagOrOtg) {
               this._isUsbJtagOrOtgDevice = true;
-              // Wait for reset to complete before showing port selection
+              // 在显示端口选择前等待重置完成
               await this._handleFlashComplete().catch((err: any) => {
-                this.logger.error(
-                  `Post-flash cleanup failed: ${err?.message || err}`,
-                );
+                this.logger.error(`刷写后清理失败：${err?.message || err}`);
                 this._state = "ERROR";
-                this._error = `Post-flash cleanup failed: ${err?.message || err}`;
+                this._error = `刷写后清理失败：${err?.message || err}`;
               });
             } else {
-              // For non-USB-JTAG/OTG, run async (no need to wait)
+              // 对于非 USB-JTAG/OTG，异步运行（无需等待）
               void this._handleFlashComplete().catch((err: any) => {
-                this.logger.error(
-                  `Post-flash cleanup failed: ${err?.message || err}`,
-                );
+                this.logger.error(`刷写后清理失败：${err?.message || err}`);
                 this._state = "ERROR";
-                this._error = `Post-flash cleanup failed: ${err?.message || err}`;
+                this._error = `刷写后清理失败：${err?.message || err}`;
               });
             }
           }
@@ -2377,16 +2316,16 @@ export class EwtInstallDialog extends LitElement {
         new Uint8Array(0),
         this.baudRate,
       ).catch((flashErr: any) => {
-        this.logger.error(`Flash error: ${flashErr.message || flashErr}`);
+        this.logger.error(`刷写错误：${flashErr.message || flashErr}`);
         this._state = "ERROR";
-        this._error = `Flash failed: ${flashErr.message || flashErr}`;
+        this._error = `刷写失败：${flashErr.message || flashErr}`;
         this._busy = false;
       });
     }
   }
 
   async _flashFilebuffer(fileBuffer: Uint8Array) {
-    // Stub is already ensured in _confirmInstall
+    // 存根已在 _confirmInstall 中确保
     const loaderToUse = this._espStub!;
 
     flash(
@@ -2395,11 +2334,9 @@ export class EwtInstallDialog extends LitElement {
 
         if (state.state === FlashStateType.FINISHED) {
           void this._handleFlashComplete().catch((err: any) => {
-            this.logger.error(
-              `Post-flash cleanup failed: ${err?.message || err}`,
-            );
+            this.logger.error(`刷写后清理失败：${err?.message || err}`);
             this._state = "ERROR";
-            this._error = `Post-flash cleanup failed: ${err?.message || err}`;
+            this._error = `刷写后清理失败：${err?.message || err}`;
           });
         }
       },
@@ -2410,9 +2347,9 @@ export class EwtInstallDialog extends LitElement {
       fileBuffer,
       this.baudRate,
     ).catch((flashErr: any) => {
-      this.logger.error(`Flash error: ${flashErr.message || flashErr}`);
+      this.logger.error(`刷写错误：${flashErr.message || flashErr}`);
       this._state = "ERROR";
-      this._error = `Flash failed: ${flashErr.message || flashErr}`;
+      this._error = `刷写失败：${flashErr.message || flashErr}`;
       this._busy = false;
     });
   }
@@ -2446,247 +2383,231 @@ export class EwtInstallDialog extends LitElement {
 
   private _handleDisconnect = () => {
     this._state = "ERROR";
-    this._error = "Disconnected";
+    this._error = "已断开连接";
   };
 
   private async _handleSelectNewPort() {
-    // Prevent multiple clicks
+    // 防止多次点击
     if (this._busy) {
-      this.logger.log(
-        "Already processing port selection, ignoring duplicate click",
-      );
+      this.logger.log("已在处理端口选择，忽略重复点击");
       return;
     }
 
     this._busy = true;
-    this.logger.log(
-      "User clicked 'Select Port' button - requesting new port...",
-    );
-    this.logger.log(
-      `Dialog in DOM at start: ${this.parentNode ? "yes" : "no"}`,
-    );
+    this.logger.log("用户点击了“选择端口”按钮 - 请求新端口...");
+    this.logger.log(`开始时对话框在 DOM 中：${this.parentNode ? "是" : "否"}`);
 
-    // Hide the "Select Port" button immediately and show progress
-    // This avoids confusion when the port selection dialog appears
-    this._state = "DASHBOARD"; // Change state to hide the button
-    this._improvChecked = false; // Show "Connecting" message
+    // 立即隐藏“选择端口”按钮并显示进度
+    // 这避免了端口选择对话框出现时的混淆
+    this._state = "DASHBOARD"; // 更改状态以隐藏按钮
+    this._improvChecked = false; // 显示“连接中”消息
     this.requestUpdate();
 
-    // Ensure dialog stays in DOM
+    // 确保对话框保持在 DOM 中
     if (!this.parentNode) {
       document.body.appendChild(this);
-      this.logger.log("Dialog re-added to DOM before port selection");
+      this.logger.log("端口选择前已将对话框重新添加到 DOM");
     }
 
     let newPort;
     try {
-      // Check if we're using WebUSB (Android) or Web Serial (Desktop)
+      // 检查是使用 WebUSB（安卓）还是 Web Serial（桌面）
       if ((globalThis as any).requestSerialPort) {
-        // Android WebUSB
-        this.logger.log("Using WebUSB port selection (Android)");
+        // 安卓 WebUSB
+        this.logger.log("使用 WebUSB 端口选择（安卓）");
         newPort = await (globalThis as any).requestSerialPort((msg: string) =>
           this.logger.log("[WebUSB]", msg),
         );
       } else {
-        // Desktop Web Serial
-        this.logger.log("Using Web Serial port selection (Desktop)");
+        // 桌面 Web Serial
+        this.logger.log("使用 Web Serial 端口选择（桌面）");
         newPort = await navigator.serial.requestPort();
       }
 
-      // UI updates can happen after requestPort completes
+      // requestPort 完成后可以进行 UI 更新
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      this.logger.log("Port selected by user");
+      this.logger.log("用户已选择端口");
 
-      // Ensure dialog is still in DOM after port selection
+      // 确保端口选择后对话框仍在 DOM 中
       if (!this.parentNode) {
         document.body.appendChild(this);
-        this.logger.log("Dialog re-added to DOM after port selection");
+        this.logger.log("端口选择后已将对话框重新添加到 DOM");
       }
     } catch (err: any) {
-      this.logger.error("Port selection error:", err);
+      this.logger.error("端口选择错误：", err);
       if ((err as DOMException).name === "NotFoundError") {
-        // User cancelled port selection
-        this.logger.log("Port selection cancelled by user");
+        // 用户取消了端口选择
+        this.logger.log("用户取消了端口选择");
         this._busy = false;
         this._state = "ERROR";
-        this._error = "Port selection cancelled";
+        this._error = "端口选择已取消";
         return;
       }
       this._busy = false;
       this._state = "ERROR";
-      this._error = `Port selection failed: ${err.message}`;
+      this._error = `端口选择失败：${err.message}`;
       return;
     }
 
     if (!newPort) {
-      this.logger.error("newPort is null/undefined");
+      this.logger.error("newPort 为 null/undefined");
       this._busy = false;
       this._state = "ERROR";
-      this._error = "Failed to select port";
+      this._error = "选择端口失败";
       return;
     }
 
-    // Open port at 115200 baud (firmware mode default)
-    // Port should be closed by resetToFirmware(), but check first
-    this.logger.log("Opening port at 115200 baud for firmware mode...");
+    // 以 115200 波特打开端口（固件模式默认值）
+    // 端口应由 resetToFirmware() 关闭，但先检查
+    this.logger.log("以 115200 波特打开端口以进入固件模式...");
     this.logger.log(
-      `Dialog in DOM before opening port: ${this.parentNode ? "yes" : "no"}`,
+      `打开端口前对话框在 DOM 中：${this.parentNode ? "是" : "否"}`,
     );
 
-    // Check if port is already open (shouldn't be, but just in case)
+    // 检查端口是否已打开（不应，但以防万一）
     if (newPort.readable !== null || newPort.writable !== null) {
-      this.logger.log("WARNING: Port appears to be open, closing it first...");
+      this.logger.log("警告：端口似乎已打开，正在先关闭它...");
       try {
         await newPort.close();
-        await sleep(200); // Wait for port to fully close
-        this.logger.log("Port closed successfully");
+        await sleep(200); // 等待端口完全关闭
+        this.logger.log("端口已成功关闭");
       } catch (closeErr: any) {
-        this.logger.log(`Port close failed: ${closeErr.message}`);
-        // Continue anyway - maybe it wasn't really open
+        this.logger.log(`关闭端口失败：${closeErr.message}`);
+        // 继续 - 也许它实际上并未打开
       }
     }
 
     try {
       await newPort.open({ baudRate: 115200 });
-      this.logger.log("Port opened successfully at 115200 baud");
+      this.logger.log("端口已成功以 115200 波特打开");
       this.logger.log(
-        `Dialog in DOM after opening port: ${this.parentNode ? "yes" : "no"}`,
+        `打开端口后对话框在 DOM 中：${this.parentNode ? "是" : "否"}`,
       );
     } catch (err: any) {
-      this.logger.error("Port open error:", err);
+      this.logger.error("打开端口错误：", err);
       this._busy = false;
       this._state = "ERROR";
-      this._error = `Failed to open port: ${err.message}`;
+      this._error = `打开端口失败：${err.message}`;
       return;
     }
 
-    // Don't create a new ESPLoader - reuse the existing one and just update the port! -> espStub.port = newPort
-    this.logger.log(
-      "Updating existing ESPLoader with new port for firmware mode...",
-    );
+    // 不要创建新的 ESPLoader - 重用现有的，只更新端口！ -> espStub.port = newPort
+    this.logger.log("使用新端口更新现有 ESPLoader 以进入固件模式...");
 
-    // CRITICAL: Update ALL port references!!
-    // Updates: espStub.port, espStub._parent.port, espLoaderBeforeConsole.port
+    // 关键：更新所有端口引用！！
+    // 更新：espStub.port, espStub._parent.port, espLoaderBeforeConsole.port
 
-    // 1. Update base loader port (CRITICAL - this is what _port getter uses!)
-    this.logger.log("Updating base loader port");
+    // 1. 更新基础加载器端口（关键 - _port getter 使用它！）
+    this.logger.log("更新基础加载器端口");
     this.esploader.port = newPort;
     this.esploader.connected = true;
 
-    // 2. Update stub port if it exists
+    // 2. 如果存在存根，更新存根端口
     if (this._espStub) {
-      this.logger.log("Updating STUB port");
+      this.logger.log("更新 STUB 端口");
       this._espStub.port = newPort;
       this._espStub.connected = true;
 
-      // 3. Update parent if it exists
+      // 3. 如果存在父级，更新它
       if (this._espStub._parent) {
-        this.logger.log("Updating parent loader port");
+        this.logger.log("更新父加载器端口");
         this._espStub._parent.port = newPort;
       }
     }
 
-    // 4. Update saved loader if it exists
+    // 4. 如果存在保存的加载器，更新它
     if ((this as any)._savedLoaderBeforeConsole) {
-      this.logger.log("Updating saved loader port");
+      this.logger.log("更新保存的加载器端口");
       (this as any)._savedLoaderBeforeConsole.port = newPort;
     }
-    this.logger.log(
-      "ESPLoader port updated for firmware mode (no bootloader sync)",
-    );
+    this.logger.log("ESPLoader 端口已更新以进入固件模式（无引导加载器同步）");
 
-    // Wait for device to fully boot into firmware after WDT reset
-    // AND for port to be ready for communication
-    this.logger.log(
-      "Waiting 700ms for device to fully boot and port to be ready...",
-    );
+    // 等待设备在 WDT 重置后完全启动到固件
+    // 并等待端口准备好通信
+    this.logger.log("等待 700ms 让设备完全启动且端口就绪...");
     await sleep(700);
 
-    // CRITICAL: Verify port is actually open and ready
+    // 关键：验证端口是否实际打开并准备就绪
     this.logger.log(
-      `Port state check: readable=${this._port.readable !== null}, writable=${this._port.writable !== null}`,
+      `端口状态检查：readable=${this._port.readable !== null}，writable=${this._port.writable !== null}`,
     );
 
-    // CRITICAL: Check if there are any reader/writer locks that could interfere with Improv
+    // 关键：检查是否有任何可能干扰 Improv 的 reader/writer 锁
     this.logger.log(
-      `Checking for locks: reader=${this.esploader._reader ? "LOCKED" : "free"}, writer=${this.esploader._writer ? "LOCKED" : "free"}`,
+      `检查锁：reader=${this.esploader._reader ? "已锁定" : "空闲"}，writer=${this.esploader._writer ? "已锁定" : "空闲"}`,
     );
     if (this.esploader._reader || this.esploader._writer) {
-      this.logger.log(
-        "WARNING: Port has active locks! Releasing them before Improv test...",
-      );
+      this.logger.log("警告：端口有活动锁！在 Improv 测试前释放它们...");
       await this._releaseReaderWriter();
-      this.logger.log("Locks released");
+      this.logger.log("锁已释放");
     }
 
-    this.logger.log("Device should be ready now");
+    this.logger.log("设备现在应该已就绪");
 
-    // Now test Improv at 115200 baud
-    this.logger.log("Testing Improv at 115200 baud...");
+    // 现在以 115200 波特测试 Improv
+    this.logger.log("以 115200 波特测试 Improv...");
 
-    // Show progress while testing Improv
+    // 测试 Improv 时显示进度
     this._state = "DASHBOARD";
-    this.requestUpdate(); // Force UI update to show progress
+    this.requestUpdate(); // 强制 UI 更新以显示进度
 
-    // Continue with Improv test
-    // For USB-JTAG/OTG: Device is in firmware mode but firmware not started - need reset
-    // For external serial: Reset ensures device is in clean state
+    // 继续 Improv 测试
+    // 对于 USB-JTAG/OTG：设备处于固件模式但固件未启动 - 需要重置
+    // 对于外部串行：重置确保设备处于干净状态
     await this._testImprov(1000, false);
   }
 
   private async _testImprov(timeout = 1000, skipReset = false) {
-    // CRITICAL: Mark Improv as checked BEFORE testing to prevent duplicate tests
+    // 关键：在测试前标记 Improv 为已检查，以防止重复测试
     this._improvChecked = true;
 
-    // CRITICAL: Set _busy = false to ensure menu is enabled even if something fails
-    // This is set early to prevent menu from staying gray if an unexpected error occurs
+    // 关键：尽早设置 _busy = false 以确保即使发生意外错误，菜单也能启用
+    // 这可以防止菜单在发生意外错误时保持灰色
     //    this._busy = false;
 
-    // Declare improvSerial outside try block so it's available in catch
+    // 在 try 块外声明 improvSerial，以便在 catch 中可用
     let improvSerial: ImprovSerial | undefined;
 
-    // Test Improv support
+    // 测试 Improv 支持
     try {
-      // Use _port getter which returns esploader.port (now updated with new port)
+      // 使用 _port getter，它返回 esploader.port（现在已用新端口更新）
       this.logger.log(
-        `Port for Improv: readable=${this._port.readable !== null}, writable=${this._port.writable !== null}`,
+        `Improv 的端口：readable=${this._port.readable !== null}，writable=${this._port.writable !== null}`,
       );
       const portInfo = this._port.getInfo();
       this.logger.log(
-        `Port info: VID=0x${portInfo.usbVendorId?.toString(16).padStart(4, "0")}, PID=0x${portInfo.usbProductId?.toString(16).padStart(4, "0")}`,
+        `端口信息：VID=0x${portInfo.usbVendorId?.toString(16).padStart(4, "0")}，PID=0x${portInfo.usbProductId?.toString(16).padStart(4, "0")}`,
       );
 
-      // CRITICAL: Reset device BEFORE testing Improv to ensure firmware is running (unless skipReset is true)
+      // 关键：在测试 Improv 前重置设备以确保固件正在运行（除非 skipReset 为 true）
       if (!skipReset) {
-        this.logger.log("Resetting device for Improv detection...");
+        this.logger.log("重置设备以进行 Improv 检测...");
 
         try {
-          // Release locks before reset
+          // 重置前释放锁
           await this._releaseReaderWriter();
 
           await this.esploader.hardReset(false);
-          this.logger.log("Device reset sent, device is rebooting...");
+          this.logger.log("已发送设备重置，设备正在重启...");
 
-          // CRITICAL: hardReset consumes the streams
-          // Need to recreate them before Improv can use the port
+          // 关键：hardReset 消耗流
+          // 需要在 Improv 可以使用端口前重新创建它们
           await this._releaseReaderWriter();
-          this.logger.log("Streams recreated after reset");
+          this.logger.log("重置后已重新创建流");
 
-          // Wait for device to boot up
-          this.logger.log(
-            "Waiting for firmware running to be ready for Improv test...",
-          );
+          // 等待设备启动
+          this.logger.log("等待固件运行以准备好进行 Improv 测试...");
           await sleep(500);
         } catch (resetErr: any) {
-          this.logger.log(`Failed to reset device: ${resetErr.message}`);
-          // Continue anyway
+          this.logger.log(`重置设备失败：${resetErr.message}`);
+          // 继续
         }
       }
 
-      // CRITICAL: Recreate streams one more time to flush any buffered firmware output
-      // Firmware debug messages can interfere with Improv protocol
-      this.logger.log("Flushing serial buffer before Improv init...");
+      // 关键：再次重新创建流以刷新任何缓冲的固件输出
+      // 固件调试消息可能会干扰 Improv 协议
+      this.logger.log("在 Improv 初始化前刷新串行缓冲区...");
       await this._releaseReaderWriter();
       await sleep(100);
 
@@ -2698,121 +2619,121 @@ export class EwtInstallDialog extends LitElement {
         this.requestUpdate(),
       );
 
-      // Don't set _client until we successfully initialize
-      this.logger.log("Calling improvSerial.initialize()...");
+      // 在成功初始化前不要设置 _client
+      this.logger.log("调用 improvSerial.initialize()...");
       const info = await improvSerial.initialize(timeout);
 
-      // Wait for firmware to complete WiFi scan and connection
-      // Poll for valid IP address (not 0.0.0.0) by requesting current state with timeout
+      // 等待固件完成 Wi-Fi 扫描和连接
+      // 通过请求当前状态并超时轮询有效 IP 地址（非 0.0.0.0）
       this.logger.log(
-        "Waiting for firmware to get valid IP address (checking every 500ms, max 10 seconds)...",
+        "等待固件获取有效 IP 地址（每 500ms 检查一次，最长 10 秒）...",
       );
       const startTime = Date.now();
-      const maxWaitTime = 10000; // 10 seconds max
+      const maxWaitTime = 10000; // 最长 10 秒
       let hasValidIp = false;
 
       while (Date.now() - startTime < maxWaitTime) {
-        // Active request current state to get updated URL
+        // 主动请求当前状态以获取更新的 URL
         try {
           await improvSerial.requestCurrentState();
           const currentUrl = improvSerial.nextUrl;
           if (currentUrl && !currentUrl.includes("0.0.0.0")) {
-            this.logger.log(`Valid IP found: ${currentUrl}`);
+            this.logger.log(`找到有效 IP：${currentUrl}`);
             hasValidIp = true;
             break;
           }
         } catch (err: any) {
-          this.logger.log(`Failed to request current state: ${err.message}`);
+          this.logger.log(`请求当前状态失败：${err.message}`);
         }
-        await sleep(500); // Check every 500ms
+        await sleep(500); // 每 500ms 检查一次
       }
 
       if (!hasValidIp) {
         this.logger.log(
-          `Timeout after ${maxWaitTime / 1000} seconds - continuing with current URL: ${improvSerial.nextUrl || "undefined"}`,
+          `${maxWaitTime / 1000} 秒超时 - 使用当前 URL 继续：${improvSerial.nextUrl || "未定义"}`,
         );
       }
 
-      // Success - set all the values
+      // 成功 - 设置所有值
       this._client = improvSerial;
       this._info = info;
       this._improvSupported = true;
       improvSerial.addEventListener("disconnect", this._handleDisconnect);
-      this.logger.log("Improv Wi-Fi Serial detected");
+      this.logger.log("检测到 Improv Wi-Fi 串行");
       this.logger.log(
-        `Improv state: ${improvSerial.state}, nextUrl: ${improvSerial.nextUrl || "undefined"}`,
+        `Improv 状态：${improvSerial.state}，nextUrl：${improvSerial.nextUrl || "未定义"}`,
       );
     } catch (err: any) {
-      this.logger.log(`Improv Wi-Fi Serial not detected: ${err.message}`);
+      this.logger.log(`未检测到 Improv Wi-Fi 串行：${err.message}`);
       this._client = null;
-      this._info = undefined; // Explicitly clear info
+      this._info = undefined; // 显式清除信息
       this._improvSupported = false;
-      // _improvChecked is already set to true at the beginning of this method
+      // _improvChecked 已在此方法开始时设置为 true
       this.logger.log(
-        `State after Improv failure: _client=${this._client}, _info=${this._info}, _improvSupported=${this._improvSupported}, _improvChecked=${this._improvChecked}`,
+        `Improv 失败后状态：_client=${this._client}，_info=${this._info}，_improvSupported=${this._improvSupported}，_improvChecked=${this._improvChecked}`,
       );
 
-      // CRITICAL: Close the improvSerial client if it was created
-      // Even if initialize() failed, the client may have opened streams
+      // 关键：如果创建了 improvSerial 客户端，请关闭它
+      // 即使 initialize() 失败，客户端也可能已打开流
       if (improvSerial) {
         try {
-          this.logger.log("Closing failed Improv client...");
+          this.logger.log("关闭失败的 Improv 客户端...");
           await improvSerial.close();
-          this.logger.log("Failed Improv client closed");
+          this.logger.log("失败的 Improv 客户端已关闭");
 
-          // CRITICAL: Wait for streams to be fully released
+          // 关键：等待流完全释放
           await sleep(200);
         } catch (closeErr: any) {
-          this.logger.log(`Failed to close Improv client: ${closeErr.message}`);
+          this.logger.log(`关闭 Improv 客户端失败：${closeErr.message}`);
         }
       }
 
-      // CRITICAL: Improv test consumes streams even on failure
-      // Need to recreate them so console/other features can work
+      // 关键：即使失败，Improv 测试也会消耗流
+      // 需要重新创建它们，以便控制台/其他功能可以工作
       try {
         await this._releaseReaderWriter();
-        this.logger.log("Streams recreated after Improv failure");
+        this.logger.log("Improv 失败后已重新创建流");
       } catch (releaseErr: any) {
-        this.logger.log(`Failed to recreate streams: ${releaseErr.message}`);
+        this.logger.log(`重新创建流失败：${releaseErr.message}`);
       }
     }
 
-    // Disable Menu as long improv check is done
+    // Improv 检查完成后禁用菜单
     this._busy = false;
 
-    // Check if user wanted specific action after reconnect
+    // 检查用户是否在重新连接后请求了特定操作
     if (this._openConsoleAfterReconnect) {
-      this.logger.log("Opening console as requested by user");
-      this._openConsoleAfterReconnect = false; // Reset flag
+      this.logger.log("按用户请求打开控制台");
+      this._openConsoleAfterReconnect = false; // 重置标志
 
-      // CRITICAL: Close Improv client before opening console
+      // 关键：在打开控制台前关闭 Improv 客户端
       if (this._client) {
         try {
           await this._closeClientWithoutEvents(this._client);
-          this.logger.log("Improv client closed before opening console");
+          this.logger.log("打开控制台前已关闭 Improv 客户端");
         } catch (e) {
-          this.logger.log("Failed to close Improv client:", e);
+          this.logger.log("关闭 Improv 客户端失败：", e);
         }
         this._client = undefined;
 
-        // Wait for port to be ready after closing client
+        // 关闭客户端后等待端口准备就绪
         await sleep(200);
       }
 
-      // Ensure all locks are released
+      // 确保所有锁已释放
       await this._releaseReaderWriter();
 
       this._state = "LOGS";
     } else if (this._visitDeviceAfterReconnect) {
-      this.logger.log("Opening Visit Device URL as requested by user");
-      this._visitDeviceAfterReconnect = false; // Reset flag
+      this.logger.log("按用户请求打开访问设备 URL");
+      this._visitDeviceAfterReconnect = false; // 重置标志
       if (this._client && this._client.nextUrl) {
         window.open(this._client.nextUrl, "_blank");
       }
       this._state = "DASHBOARD";
     } else if (this._addToHAAfterReconnect) {
-      this.logger.log("Opening Home Assistant URL as requested by user");
-      this._addToHAAfterReconnect = false; // Reset flag
+      this.logger.log("按用户请求打开 Home Assistant URL");
+      this._addToHAAfterReconnect = false; // 重置标志
       if (this._manifest.home_assistant_domain) {
         window.open(
           `https://my.home-assistant.io/redirect/config_flow_start/?domain=${this._manifest.home_assistant_domain}`,
@@ -2821,26 +2742,26 @@ export class EwtInstallDialog extends LitElement {
       }
       this._state = "DASHBOARD";
     } else if (this._changeWiFiAfterReconnect) {
-      this.logger.log("Opening Wi-Fi provisioning as requested by user");
-      this._changeWiFiAfterReconnect = false; // Reset flag
+      this.logger.log("按用户请求打开 Wi-Fi 配置");
+      this._changeWiFiAfterReconnect = false; // 重置标志
 
-      // Close Improv client and re-initialize for WiFi setup
+      // 关闭 Improv 客户端并重新初始化以进行 Wi-Fi 设置
       if (this._client) {
         try {
           await this._closeClientWithoutEvents(this._client);
         } catch (e) {
-          this.logger.log("Failed to close Improv client:", e);
+          this.logger.log("关闭 Improv 客户端失败：", e);
         }
         this._client = undefined;
 
-        // Wait for port to be ready after closing client
+        // 关闭客户端后等待端口准备就绪
         await sleep(200);
       }
 
-      // Different handling for different device types:
-      // - WebSerial: Just release locks
-      // - WebUSB CDC: Do hardReset + release locks
-      // - WebUSB external serial: Just release locks
+      // 不同类型设备的处理：
+      // - WebSerial：只释放锁
+      // - WebUSB CDC：执行 hardReset + 释放锁
+      // - WebUSB 外部串行：只释放锁
       const isWebUsbExternal = await this._isWebUsbWithExternalSerial();
       const isWebUsbCdc =
         this.esploader.isWebUSB &&
@@ -2848,81 +2769,76 @@ export class EwtInstallDialog extends LitElement {
         !isWebUsbExternal;
 
       if (isWebUsbCdc) {
-        // WebUSB CDC needs hardReset
-        this.logger.log("WebUSB CDC: Resetting device for Wi-Fi setup...");
+        // WebUSB CDC 需要 hardReset
+        this.logger.log("WebUSB CDC：重置设备以进行 Wi-Fi 设置...");
 
         try {
           await this.esploader.hardReset(false);
-          this.logger.log("Device reset completed");
+          this.logger.log("设备重置完成");
         } catch (err: any) {
-          this.logger.log(`Reset error: ${err.message}`);
+          this.logger.log(`重置错误：${err.message}`);
         }
 
         await this._releaseReaderWriter();
         await sleep(200);
       } else {
-        // WebSerial or WebUSB external serial: Just release locks
+        // WebSerial 或 WebUSB 外部串行：只释放锁
         if (isWebUsbExternal) {
-          this.logger.log(
-            "WebUSB external serial: Preparing port for Wi-Fi setup...",
-          );
+          this.logger.log("WebUSB 外部串行：准备端口以进行 Wi-Fi 设置...");
         } else {
-          this.logger.log("WebSerial: Preparing port for Wi-Fi setup...");
+          this.logger.log("WebSerial：准备端口以进行 Wi-Fi 设置...");
         }
 
         await this._releaseReaderWriter();
         await sleep(200);
       }
 
-      this.logger.log("Port ready for Wi-Fi setup");
+      this.logger.log("端口已准备好进行 Wi-Fi 设置");
 
-      // CRITICAL: Recreate streams one more time to flush any buffered firmware output
-      // Firmware debug messages can interfere with Improv protocol
-      this.logger.log("Flushing serial buffer before Improv init...");
+      // 关键：再次重新创建流以刷新任何缓冲的固件输出
+      // 固件调试消息可能会干扰 Improv 协议
+      this.logger.log("在 Improv 初始化前刷新串行缓冲区...");
       await this._releaseReaderWriter();
       await sleep(100);
 
-      // Re-create Improv client for Wi-Fi provisioning
-      this.logger.log("Re-initializing Improv Serial for Wi-Fi setup");
+      // 重新创建 Improv 客户端以进行 Wi-Fi 配置
+      this.logger.log("重新初始化 Improv 串行以进行 Wi-Fi 设置");
       const client = new ImprovSerial(this._port, this.logger);
       client.addEventListener("state-changed", () => {
         this.requestUpdate();
       });
       client.addEventListener("error-changed", () => this.requestUpdate());
       try {
-        // Use 10 second timeout to allow device to get IP address
+        // 使用 10 秒超时，允许设备获取 IP 地址
         this._info = await client.initialize(10000);
         this._client = client;
         client.addEventListener("disconnect", this._handleDisconnect);
-        this.logger.log("Improv client ready for Wi-Fi provisioning");
+        this.logger.log("Improv 客户端已准备好进行 Wi-Fi 配置");
         this._state = "PROVISION";
         this._provisionForce = true;
       } catch (improvErr: any) {
         try {
           await this._closeClientWithoutEvents(client);
         } catch (closeErr) {
-          this.logger.log(
-            "Failed to close Improv client after init error:",
-            closeErr,
-          );
+          this.logger.log("初始化错误后关闭 Improv 客户端失败：", closeErr);
         }
-        this.logger.log(`Improv initialization failed: ${improvErr.message}`);
-        this._error = `Improv initialization failed: ${improvErr.message}`;
+        this.logger.log(`Improv 初始化失败：${improvErr.message}`);
+        this._error = `Improv 初始化失败：${improvErr.message}`;
         this._state = "ERROR";
       }
     } else {
       this._state = "DASHBOARD";
     }
 
-    // If dialog was removed from DOM, add it back
+    // 如果对话框从 DOM 中移除，重新添加它
     if (!this.parentNode) {
       document.body.appendChild(this);
-      this.logger.log("Dialog re-added to DOM");
+      this.logger.log("对话框已重新添加到 DOM");
     }
 
-    this.requestUpdate(); // Force UI update after state changes
+    this.requestUpdate(); // 状态更改后强制 UI 更新
 
-    // Additional check to ensure dialog is visible
+    // 额外检查以确保对话框可见
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 
@@ -2935,7 +2851,7 @@ export class EwtInstallDialog extends LitElement {
   }
 
   /**
-   * Return if the device runs same firmware as manifest.
+   * 返回设备是否运行与清单相同的固件。
    */
   private get _isSameFirmware() {
     return !this._info
@@ -2946,7 +2862,7 @@ export class EwtInstallDialog extends LitElement {
   }
 
   /**
-   * Return if the device runs same firmware and version as manifest.
+   * 返回设备是否运行与清单相同的固件和版本。
    */
   private get _isSameVersion() {
     return (
@@ -2955,11 +2871,11 @@ export class EwtInstallDialog extends LitElement {
   }
 
   private async _closeClientWithoutEvents(client: ImprovSerial) {
-    // CRITICAL: Always remove event listener BEFORE closing
-    // This prevents the disconnect event from firing and showing error dialog
+    // 关键：在关闭前始终移除事件监听器
+    // 这可以防止触发断开连接事件并显示错误对话框
     client.removeEventListener("disconnect", this._handleDisconnect);
 
-    // Then close the client
+    // 然后关闭客户端
     await client.close();
   }
 

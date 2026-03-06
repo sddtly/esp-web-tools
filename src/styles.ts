@@ -1,8 +1,7 @@
 import { css } from "lit";
 
-// We set font-size to 16px and all the mdc typography styles
-// because it defaults to rem, which means that the font-size
-// of the host website would influence the ESP Web Tools dialog.
+// 我们将字体大小设置为 16px 并应用所有 mdc 排版样式，
+// 因为默认为 rem，这意味着宿主网站的字体大小会影响 ESP Web Tools 对话框。
 
 export const dialogStyles = css`
   :host {

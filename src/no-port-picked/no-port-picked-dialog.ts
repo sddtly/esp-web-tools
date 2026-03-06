@@ -33,42 +33,31 @@ class EwtNoPortPickedDialog extends LitElement {
     return html`
       <ewt-dialog
         open
-        heading="No port selected"
+        heading="未选择端口"
         scrimClickAction
         @closed=${this._handleClose}
       >
-        <div>
-          If you didn't select a port because you didn't see your device listed,
-          try the following steps:
-        </div>
+        <div>如果您因为未看到设备列出而未选择端口，请尝试以下步骤：</div>
         <ol>
           <li>
-            Make sure that the device is connected to this computer (the one
-            that runs the browser that shows this website)
+            确保设备已连接到这台计算机（即运行显示此网站的浏览器的计算机）
           </li>
+          <li>大多数设备通电时会有个小灯。如果您的设备有，请确保它亮着。</li>
+          <li>确保您使用的USB线缆可用于数据传输，而不是仅供电的线缆。</li>
           <li>
-            Most devices have a tiny light when it is powered on. If yours has
-            one, make sure it is on.
-          </li>
-          <li>
-            Make sure that the USB cable you use can be used for data and is not
-            a power-only cable.
-          </li>
-          <li>
-            Make sure you have the right drivers installed. Below are the
-            drivers for common chips used in ESP devices:
+            确保安装了正确的驱动程序。以下是ESP设备常用芯片的驱动程序：
             <ul>
               <li>
-                CP2102 drivers:
+                CP2102 驱动程序：
                 <a
                   href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers"
                   target="_blank"
                   rel="noopener"
-                  >Windows & Mac</a
+                  >Windows 和 Mac</a
                 >
               </li>
               <li>
-                CH342, CH343, CH9102 drivers:
+                CH342, CH343, CH9102 驱动程序：
                 <a
                   href="https://www.wch.cn/downloads/CH343SER_ZIP.html"
                   target="_blank"
@@ -82,10 +71,10 @@ class EwtNoPortPickedDialog extends LitElement {
                   >Mac</a
                 >
                 <br />
-                (download via blue button with ${cloudDownload} icon)
+                （通过带有 ${cloudDownload} 图标的蓝色按钮下载）
               </li>
               <li>
-                CH340, CH341 drivers:
+                CH340, CH341 驱动程序：
                 <a
                   href="https://www.wch.cn/downloads/CH341SER_ZIP.html"
                   target="_blank"
@@ -99,18 +88,16 @@ class EwtNoPortPickedDialog extends LitElement {
                   >Mac</a
                 >
                 <br />
-                (download via blue button with ${cloudDownload} icon)
+                （通过带有 ${cloudDownload} 图标的蓝色按钮下载）
               </li>
             </ul>
           </li>
           <li>
-            If you are using a Linux flavor, add your username to the dialout
-            group so you have the appropriate permissions on the device.
+            如果您使用的是Linux发行版，请将您的用户名添加到dialout组，以便对设备拥有适当的权限。
             <ul>
               <code>sudo usermod -a -G dialout YourUserName</code>
             </ul>
-            You may need to logout & back in or reboot to activate the new group
-            access.
+            您可能需要注销并重新登录或重启以激活新的组权限。
           </li>
         </ol>
         ${this.doTryAgain
@@ -118,7 +105,7 @@ class EwtNoPortPickedDialog extends LitElement {
               <ewt-button
                 slot="primaryAction"
                 dialogAction="close"
-                label="Try Again"
+                label="重试"
                 @click=${this.doTryAgain}
               ></ewt-button>
 
@@ -126,14 +113,14 @@ class EwtNoPortPickedDialog extends LitElement {
                 no-attention
                 slot="secondaryAction"
                 dialogAction="close"
-                label="Cancel"
+                label="取消"
               ></ewt-button>
             `
           : html`
               <ewt-button
                 slot="primaryAction"
                 dialogAction="close"
-                label="Close"
+                label="关闭"
               ></ewt-button>
             `}
       </ewt-dialog>

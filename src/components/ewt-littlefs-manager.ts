@@ -4,20 +4,20 @@ import type { Partition } from "../partition.js";
 import "./ewt-button";
 import "./ewt-textfield";
 
-// Dynamic import for LittleFS WASM module
+// 动态导入 LittleFS WASM 模块
 let _wasmBasePath: string | null = null;
 let _littleFSModule: any = null;
 
 async function loadLittleFS() {
-  // Cache the module to avoid reloading
+  // 缓存模块以避免重复加载
   if (_littleFSModule) {
     return _littleFSModule;
   }
 
-  // Determine WASM base path from the current script location
+  // 从当前脚本位置确定 WASM 基础路径
   if (!_wasmBasePath) {
     const scriptUrl = new URL(import.meta.url);
-    // Remove the filename to get the directory
+    // 移除文件名以获取目录
     const scriptDir = scriptUrl.href.substring(
       0,
       scriptUrl.href.lastIndexOf("/") + 1,
@@ -26,24 +26,20 @@ async function loadLittleFS() {
   }
 
   try {
-    // Try to import from the calculated path
+    // 尝试从计算出的路径导入
     const indexUrl = _wasmBasePath + "index.js";
-    console.log("[LittleFS] Loading module from:", indexUrl);
+    console.log("[LittleFS] 正在从以下路径加载模块：", indexUrl);
     _littleFSModule = await import(/* @vite-ignore */ indexUrl);
     return _littleFSModule;
   } catch (err) {
-    console.error(
-      "[LittleFS] Failed to load from calculated path:",
-      _wasmBasePath,
-      err,
-    );
-    // Fallback to relative import (for local development)
+    console.error("[LittleFS] 无法从计算路径加载：", _wasmBasePath, err);
+    // 回退到相对导入（用于本地开发）
     try {
       _littleFSModule = await import("../wasm/littlefs/index.js");
       return _littleFSModule;
     } catch (fallbackErr) {
-      console.error("[LittleFS] Fallback import also failed:", fallbackErr);
-      throw new Error(`Failed to load LittleFS module: ${err}`);
+      console.error("[LittleFS] 回退导入也失败：", fallbackErr);
+      throw new Error(`加载 LittleFS 模块失败：${err}`);
     }
   }
 }
@@ -63,13 +59,13 @@ export class EwtLittleFSManager extends LitElement {
   @state() private _diskVersion = "";
   @state() private _busy = false;
   @state() private _selectedFile: File | null = null;
-  @state() private _flashProgress = 0; // 0-100 for flash progress
+  @state() private _flashProgress = 0; // 0-100 刷写进度
   @state() private _isFlashing = false;
-  @state() private _flashOperation: "reading" | "writing" | null = null; // Track operation type
+  @state() private _flashOperation: "reading" | "writing" | null = null; // 跟踪操作类型
 
   async connectedCallback() {
     super.connectedCallback();
-    this.logger.log("LittleFS Manager: connectedCallback called");
+    this.logger.log("LittleFS 管理器：connectedCallback 被调用");
     await this._openFilesystem();
   }
 
@@ -86,14 +82,14 @@ export class EwtLittleFSManager extends LitElement {
       this._flashOperation = "reading";
 
       this.logger.log(
-        `Reading LittleFS partition "${this.partition.name}" (${this._formatSize(this.partition.size)})...`,
+        `正在读取 LittleFS 分区 "${this.partition.name}" (${this._formatSize(this.partition.size)})...`,
       );
 
       if (!this.espStub.IS_STUB) {
-        throw new Error("ESP stub loader is not running. Cannot read flash.");
+        throw new Error("ESP 存根加载器未运行。无法读取闪存。");
       }
 
-      // Read entire partition with progress callback
+      // 读取整个分区，带进度回调
       const data = await this.espStub.readFlash(
         this.partition.offset,
         this.partition.size,
@@ -104,16 +100,16 @@ export class EwtLittleFSManager extends LitElement {
       );
 
       if (data.length === 0) {
-        throw new Error("Read 0 bytes from partition");
+        throw new Error("从分区读取 0 字节");
       }
 
-      this.logger.log("Mounting LittleFS filesystem...");
+      this.logger.log("正在挂载 LittleFS 文件系统...");
 
-      // Load LittleFS module dynamically
+      // 动态加载 LittleFS 模块
       const { createLittleFSFromImage, formatDiskVersion } =
         await loadLittleFS();
 
-      // Try to mount with different block sizes
+      // 尝试使用不同的块大小挂载
       const blockSizes = [4096, 2048, 1024, 512];
       let fs = null;
       let blockSize = 0;
@@ -122,7 +118,7 @@ export class EwtLittleFSManager extends LitElement {
         try {
           const blockCount = Math.floor(this.partition.size / bs);
 
-          // Pass WASM URL if available
+          // 如果可用，传递 WASM URL
           const options: any = {
             blockSize: bs,
             blockCount: blockCount,
@@ -134,42 +130,40 @@ export class EwtLittleFSManager extends LitElement {
 
           fs = await createLittleFSFromImage(data, options);
 
-          // Try to list root to verify it works
+          // 尝试列出根目录以验证其工作
           fs.list("/");
           blockSize = bs;
-          this.logger.log(
-            `Successfully mounted LittleFS with block size ${bs}`,
-          );
+          this.logger.log(`已成功使用块大小 ${bs} 挂载 LittleFS`);
           break;
         } catch (err) {
-          // Try next block size
+          // 尝试下一个块大小
           fs = null;
         }
       }
 
       if (!fs) {
-        throw new Error("Failed to mount LittleFS with any block size");
+        throw new Error("无法使用任何块大小挂载 LittleFS");
       }
 
       this._fs = fs;
       this._blockSize = blockSize;
 
-      // Get disk version
+      // 获取磁盘版本
       try {
         const diskVer = fs.getDiskVersion();
         if (diskVer && diskVer !== 0) {
           this._diskVersion = formatDiskVersion(diskVer);
         } else {
-          this._diskVersion = "Unknown";
+          this._diskVersion = "未知";
         }
       } catch (e: any) {
-        this._diskVersion = "Unknown";
+        this._diskVersion = "未知";
       }
 
       this._refreshFiles();
-      this.logger.log("LittleFS filesystem opened successfully");
+      this.logger.log("LittleFS 文件系统成功打开");
     } catch (e: any) {
-      this.logger.error(`Failed to open LittleFS: ${e.message || e}`);
+      this.logger.error(`打开 LittleFS 失败：${e.message || e}`);
       if (this.onClose) {
         this.onClose();
       }
@@ -187,7 +181,7 @@ export class EwtLittleFSManager extends LitElement {
     }
 
     try {
-      // Calculate usage
+      // 计算使用量
       const allFiles = this._fs.list("/");
       const usedBytes = this._estimateUsage(allFiles);
       const totalBytes = this.partition.size;
@@ -198,10 +192,10 @@ export class EwtLittleFSManager extends LitElement {
         freeBytes: totalBytes - usedBytes,
       };
 
-      // List files in current directory
+      // 列出当前目录中的文件
       const entries = this._fs.list(this._currentPath);
 
-      // Sort: directories first, then files
+      // 排序：目录优先，然后文件
       entries.sort((a: any, b: any) => {
         if (a.type === "dir" && b.type !== "dir") return -1;
         if (a.type !== "dir" && b.type === "dir") return 1;
@@ -210,14 +204,14 @@ export class EwtLittleFSManager extends LitElement {
 
       this._files = entries;
     } catch (e: any) {
-      this.logger.error(`Failed to refresh file list: ${e.message || e}`);
+      this.logger.error(`刷新文件列表失败：${e.message || e}`);
       this._files = [];
     }
   }
 
   private _estimateUsage(entries: any[]): number {
     const block = this._blockSize || 4096;
-    let total = block * 2; // root metadata copies
+    let total = block * 2; // 根元数据副本
 
     for (const entry of entries || []) {
       if (entry.type === "dir") {
@@ -265,17 +259,17 @@ export class EwtLittleFSManager extends LitElement {
 
     try {
       this._busy = true;
-      this.logger.log(`Uploading file "${this._selectedFile.name}"...`);
+      this.logger.log(`正在上传文件 "${this._selectedFile.name}"...`);
 
       const data = await this._selectedFile.arrayBuffer();
       const uint8Data = new Uint8Array(data);
 
-      // Construct target path
+      // 构造目标路径
       let targetPath = this._currentPath;
       if (!targetPath.endsWith("/")) targetPath += "/";
       targetPath += this._selectedFile.name;
 
-      // Ensure parent directories exist
+      // 确保父目录存在
       const segments = targetPath.split("/").filter(Boolean);
       if (segments.length > 1) {
         let built = "";
@@ -284,32 +278,32 @@ export class EwtLittleFSManager extends LitElement {
           try {
             this._fs.mkdir(built);
           } catch (e) {
-            // Ignore if directory already exists
+            // 如果目录已存在，忽略
           }
         }
       }
 
-      // Write file
+      // 写入文件
       if (typeof this._fs.writeFile === "function") {
         this._fs.writeFile(targetPath, uint8Data);
       } else if (typeof this._fs.addFile === "function") {
         this._fs.addFile(targetPath, uint8Data);
       }
 
-      // Verify by reading back
+      // 通过读回验证
       const readBack = this._fs.readFile(targetPath);
       this.logger.log(
-        `✓ File written: ${readBack.length} bytes at ${targetPath}`,
+        `✓ 文件已写入：${readBack.length} 字节，位于 ${targetPath}`,
       );
 
-      // Clear input
+      // 清空输入
       const uploadedFileName = this._selectedFile.name;
       this._selectedFile = null;
       this._refreshFiles();
 
-      this.logger.log(`File "${uploadedFileName}" uploaded successfully`);
+      this.logger.log(`文件 "${uploadedFileName}" 上传成功`);
     } catch (e: any) {
-      this.logger.error(`Failed to upload file: ${e.message || e}`);
+      this.logger.error(`上传文件失败：${e.message || e}`);
     } finally {
       this._busy = false;
     }
@@ -318,7 +312,7 @@ export class EwtLittleFSManager extends LitElement {
   private _createFolder() {
     if (!this._fs) return;
 
-    const dirName = prompt("Enter directory name:");
+    const dirName = prompt("输入目录名称：");
     if (!dirName || !dirName.trim()) return;
 
     try {
@@ -329,9 +323,9 @@ export class EwtLittleFSManager extends LitElement {
       this._fs.mkdir(targetPath);
       this._refreshFiles();
 
-      this.logger.log(`Directory "${dirName}" created successfully`);
+      this.logger.log(`目录 "${dirName}" 创建成功`);
     } catch (e: any) {
-      this.logger.error(`Failed to create directory: ${e.message || e}`);
+      this.logger.error(`创建目录失败：${e.message || e}`);
     }
   }
 
@@ -339,12 +333,12 @@ export class EwtLittleFSManager extends LitElement {
     if (!this._fs) return;
 
     try {
-      this.logger.log(`Downloading file "${path}"...`);
+      this.logger.log(`正在下载文件 "${path}"...`);
 
       const data = this._fs.readFile(path);
       const filename = path.split("/").filter(Boolean).pop() || "file.bin";
 
-      // Create download
+      // 创建下载
       const blob = new Blob([data], { type: "application/octet-stream" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -355,9 +349,9 @@ export class EwtLittleFSManager extends LitElement {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      this.logger.log(`File "${filename}" downloaded successfully`);
+      this.logger.log(`文件 "${filename}" 下载成功`);
     } catch (e: any) {
-      this.logger.error(`Failed to download file: ${e.message || e}`);
+      this.logger.error(`下载文件失败：${e.message || e}`);
     }
   }
 
@@ -365,7 +359,9 @@ export class EwtLittleFSManager extends LitElement {
     if (!this._fs) return;
 
     const name = path.split("/").filter(Boolean).pop() || path;
-    const confirmed = confirm(`Delete ${type} "${name}"?`);
+    const confirmed = confirm(
+      `删除 ${type === "dir" ? "目录" : "文件"} "${name}"？`,
+    );
 
     if (!confirmed) return;
 
@@ -377,11 +373,9 @@ export class EwtLittleFSManager extends LitElement {
       }
 
       this._refreshFiles();
-      this.logger.log(
-        `${type === "dir" ? "Directory" : "File"} "${name}" deleted successfully`,
-      );
+      this.logger.log(`${type === "dir" ? "目录" : "文件"} "${name}" 删除成功`);
     } catch (e: any) {
-      this.logger.error(`Failed to delete ${type}: ${e.message || e}`);
+      this.logger.error(`删除 ${type} 失败：${e.message || e}`);
     }
   }
 
@@ -389,12 +383,12 @@ export class EwtLittleFSManager extends LitElement {
     if (!this._fs) return;
 
     try {
-      this.logger.log("Creating LittleFS backup image...");
+      this.logger.log("正在创建 LittleFS 备份镜像...");
       const image = this._fs.toImage();
 
       const filename = `${this.partition.name}_littlefs_backup.bin`;
 
-      // Create download
+      // 创建下载
       const blob = new Blob([image], { type: "application/octet-stream" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -405,9 +399,9 @@ export class EwtLittleFSManager extends LitElement {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      this.logger.log(`LittleFS backup saved as "${filename}"`);
+      this.logger.log(`LittleFS 备份已保存为 "${filename}"`);
     } catch (e: any) {
-      this.logger.error(`Failed to backup LittleFS: ${e.message || e}`);
+      this.logger.error(`备份 LittleFS 失败：${e.message || e}`);
     }
   }
 
@@ -415,11 +409,11 @@ export class EwtLittleFSManager extends LitElement {
     if (!this._fs) return;
 
     const confirmed = confirm(
-      `Write modified LittleFS to flash?\n\n` +
-        `Partition: ${this.partition.name}\n` +
-        `Offset: 0x${this.partition.offset.toString(16)}\n` +
-        `Size: ${this._formatSize(this.partition.size)}\n\n` +
-        `This will overwrite the current filesystem on the device!`,
+      `将修改后的 LittleFS 写入闪存？\n\n` +
+        `分区：${this.partition.name}\n` +
+        `偏移量：0x${this.partition.offset.toString(16)}\n` +
+        `大小：${this._formatSize(this.partition.size)}\n\n` +
+        `这将覆盖设备上的当前文件系统！`,
     );
 
     if (!confirmed) return;
@@ -428,30 +422,30 @@ export class EwtLittleFSManager extends LitElement {
       this._busy = true;
       this._isFlashing = true;
       this._flashProgress = 0;
-      this._flashOperation = "writing"; // Set operation type
+      this._flashOperation = "writing"; // 设置操作类型
 
-      this.logger.log("Creating LittleFS image...");
+      this.logger.log("正在创建 LittleFS 镜像...");
       const image = this._fs.toImage();
-      this.logger.log(`Image created: ${this._formatSize(image.length)}`);
+      this.logger.log(`镜像已创建：${this._formatSize(image.length)}`);
 
       if (image.length > this.partition.size) {
         this.logger.error(
-          `Image size (${this._formatSize(image.length)}) exceeds partition size (${this._formatSize(this.partition.size)})`,
+          `镜像大小 (${this._formatSize(image.length)}) 超过分区大小 (${this._formatSize(this.partition.size)})`,
         );
         return;
       }
 
       this.logger.log(
-        `Writing ${this._formatSize(image.length)} to partition "${this.partition.name}" at 0x${this.partition.offset.toString(16)}...`,
+        `正在将 ${this._formatSize(image.length)} 写入分区 "${this.partition.name}"，偏移量 0x${this.partition.offset.toString(16)}...`,
       );
 
-      // Convert Uint8Array to ArrayBuffer
+      // 将 Uint8Array 转换为 ArrayBuffer
       const imageBuffer = image.buffer.slice(
         image.byteOffset,
         image.byteOffset + image.byteLength,
       );
 
-      // Write the image to flash with progress callback
+      // 将镜像写入闪存，带进度回调
       await this.espStub.flashData(
         imageBuffer,
         (bytesWritten: number, totalBytes: number) => {
@@ -461,10 +455,10 @@ export class EwtLittleFSManager extends LitElement {
         this.partition.offset,
       );
 
-      this.logger.log(`✓ LittleFS successfully written to flash!`);
-      this.logger.log(`To use the new filesystem, reset your device.`);
+      this.logger.log(`✓ LittleFS 成功写入闪存！`);
+      this.logger.log(`要使用新的文件系统，请重置您的设备。`);
     } catch (e: any) {
-      this.logger.error(`Failed to write LittleFS to flash: ${e.message || e}`);
+      this.logger.error(`写入 LittleFS 到闪存失败：${e.message || e}`);
     } finally {
       this._busy = false;
       this._isFlashing = false;
@@ -476,9 +470,9 @@ export class EwtLittleFSManager extends LitElement {
   private _cleanup() {
     if (this._fs) {
       try {
-        // Don't call destroy() - just let garbage collection handle it
+        // 不调用 destroy() - 让垃圾回收处理它
       } catch (e) {
-        console.error("Error cleaning up LittleFS:", e);
+        console.error("清理 LittleFS 时出错：", e);
       }
       this._fs = null;
     }
@@ -496,11 +490,11 @@ export class EwtLittleFSManager extends LitElement {
 
     return html`
       <div class="littlefs-manager">
-        <h3>LittleFS Filesystem Manager</h3>
+        <h3>LittleFS 文件系统管理器</h3>
 
         <div class="littlefs-info">
           <div class="littlefs-partition-info">
-            <strong>Partition:</strong> ${this.partition.name}
+            <strong>分区：</strong> ${this.partition.name}
             <span class="littlefs-size"
               >(${this._formatSize(this.partition.size)})</span
             >
@@ -519,12 +513,12 @@ export class EwtLittleFSManager extends LitElement {
                 ? html`<span class="flash-status">
                     ⚡
                     ${this._flashOperation === "reading"
-                      ? "Reading from"
-                      : "Writing to"}
-                    flash: ${this._flashProgress}%
+                      ? "正在从闪存读取"
+                      : "正在写入闪存"}
+                    ：${this._flashProgress}%
                   </span>`
                 : html`<span
-                      >Used: ${this._formatSize(this._usage.usedBytes)} /
+                      >已用：${this._formatSize(this._usage.usedBytes)} /
                       ${this._formatSize(this._usage.capacityBytes)}
                       (${usedPercent}%)</span
                     >
@@ -539,22 +533,22 @@ export class EwtLittleFSManager extends LitElement {
 
         <div class="littlefs-controls">
           <ewt-button
-            label="Refresh"
+            label="刷新"
             @click=${this._refreshFiles}
             ?disabled=${this._busy}
           ></ewt-button>
           <ewt-button
-            label="Backup Image"
+            label="备份镜像"
             @click=${this._backupImage}
             ?disabled=${this._busy}
           ></ewt-button>
           <ewt-button
-            label="Write to Flash"
+            label="写入闪存"
             @click=${this._writeToFlash}
             ?disabled=${this._busy}
           ></ewt-button>
           <ewt-button
-            label="Close"
+            label="关闭"
             @click=${() => {
               this._cleanup();
               if (this.onClose) this.onClose();
@@ -565,7 +559,7 @@ export class EwtLittleFSManager extends LitElement {
 
         <div class="littlefs-breadcrumb">
           <ewt-button
-            label="↑ Up"
+            label="↑ 上一级"
             @click=${this._navigateUp}
             ?disabled=${this._currentPath === "/" || this._busy}
           ></ewt-button>
@@ -579,12 +573,12 @@ export class EwtLittleFSManager extends LitElement {
             ?disabled=${this._busy}
           />
           <ewt-button
-            label="Upload File"
+            label="上传文件"
             @click=${this._uploadFile}
             ?disabled=${!this._selectedFile || this._busy}
           ></ewt-button>
           <ewt-button
-            label="New Folder"
+            label="新建文件夹"
             @click=${this._createFolder}
             ?disabled=${this._busy}
           ></ewt-button>
@@ -594,19 +588,17 @@ export class EwtLittleFSManager extends LitElement {
           <table class="file-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Size</th>
-                <th>Actions</th>
+                <th>名称</th>
+                <th>类型</th>
+                <th>大小</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
               ${this._files.length === 0
                 ? html`
                     <tr>
-                      <td colspan="4" class="empty-state">
-                        No files in this directory
-                      </td>
+                      <td colspan="4" class="empty-state">此目录中没有文件</td>
                     </tr>
                   `
                 : this._files.map(
@@ -630,7 +622,7 @@ export class EwtLittleFSManager extends LitElement {
                             >
                           </div>
                         </td>
-                        <td>${entry.type === "dir" ? "Directory" : "File"}</td>
+                        <td>${entry.type === "dir" ? "目录" : "文件"}</td>
                         <td>
                           ${entry.type === "file"
                             ? this._formatSize(entry.size)
@@ -641,7 +633,7 @@ export class EwtLittleFSManager extends LitElement {
                             ${entry.type === "file"
                               ? html`
                                   <ewt-button
-                                    label="Download"
+                                    label="下载"
                                     @click=${() =>
                                       this._downloadFile(entry.path)}
                                     ?disabled=${this._busy}
@@ -650,7 +642,7 @@ export class EwtLittleFSManager extends LitElement {
                               : ""}
                             <ewt-button
                               class="danger"
-                              label="Delete"
+                              label="删除"
                               @click=${() =>
                                 this._deleteFile(entry.path, entry.type)}
                               ?disabled=${this._busy}

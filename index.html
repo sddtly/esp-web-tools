@@ -1,429 +1,393 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>ESP Web Tools</title>
-    <meta
-      name="description"
-      content="Easily allow users to flash new firmware for their ESP-devices on the web."
-    />
-    <meta name="viewport" content="width=device-width" />
+<head>
+  <meta charset="utf-8" />
+  <title>ESP Web Tools 下一代</title>
+  <meta
+    name="description"
+    content="轻松让用户在网页上为他们的ESP设备刷写新固件。"
+  />
+  <meta name="viewport" content="width=device-width" />
 
-    <meta property="og:title" content="ESP Web Tools" />
-    <meta property="og:site_name" content="ESP Web Tools" />
-    <meta
-      property="og:url"
-      content="https://Jason2866.github.io/esp-web-tools/"
-    />
-    <meta property="og:type" content="website" />
-    <meta
-      property="og:description"
-      content="Easily allow users to flash new firmware for their ESP-devices on the web."
-    />
-    <meta
-      property="og:image"
-      content="https://Jason2866.github.io/esp-web-tools/static/social.png"
-    />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="ESP Web Tools" />
-    <meta
-      name="twitter:description"
-      content="Easily allow users to flash new firmware for their ESP-devices on the web."
-    />
-    <meta
-      name="twitter:image"
-      content="https://Jason2866.github.io/esp-web-tools/static/social.png"
-    />
-    <meta name="color-scheme" content="dark light" />
-    <style>
+  <meta property="og:title" content="ESP Web Tools 下一代" />
+  <meta property="og:site_name" content="ESP Web Tools" />
+  <meta
+    property="og:url"
+    content="https://Jason2866.github.io/esp-web-tools/"
+  />
+  <meta property="og:type" content="website" />
+  <meta
+    property="og:description"
+    content="轻松让用户在网页上为他们的ESP设备刷写新固件。"
+  />
+  <meta
+    property="og:image"
+    content="https://Jason2866.github.io/esp-web-tools/static/social.png"
+  />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="ESP Web Tools" />
+  <meta
+    name="twitter:description"
+    content="轻松让用户在网页上为他们的ESP设备刷写新固件。"
+  />
+  <meta
+    name="twitter:image"
+    content="https://Jason2866.github.io/esp-web-tools/static/social.png"
+  />
+  <meta name="color-scheme" content="dark light" />
+  <style>
       body {
-        font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI",
+          font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI",
           Roboto, Ubuntu, sans-serif;
-        padding: 0;
-        margin: 0;
-        line-height: 1.4;
+          padding: 0;
+          margin: 0;
+          line-height: 1.4;
       }
       .content {
-        max-width: 600px;
-        margin: 0 auto;
-        padding: 12px;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 12px;
       }
       h2 {
-        margin-top: 2em;
+          margin-top: 2em;
       }
       h3 {
-        margin-top: 1.5em;
+          margin-top: 1.5em;
       }
       .projects {
-        display: flex;
-        text-align: center;
-        flex-wrap: wrap;
-        gap: 24px;
-        justify-content: center;
+          display: flex;
+          text-align: center;
+          flex-wrap: wrap;
+          gap: 24px;
+          justify-content: center;
       }
       .projects a {
-        color: initial;
-        text-decoration: none;
+          color: initial;
+          text-decoration: none;
       }
       .project .logo img {
-        height: 50px;
+          height: 50px;
       }
       .project .name {
-        margin-top: 8px;
+          margin-top: 8px;
       }
       a {
-        color: #03a9f4;
+          color: #03a9f4;
       }
       .screenshot {
-        text-align: center;
+          text-align: center;
       }
       .screenshot img {
-        max-width: 100%;
-        box-shadow: rgb(0 0 0 / 20%) 0px 2px 1px -1px,
+          max-width: 100%;
+          box-shadow: rgb(0 0 0 / 20%) 0px 2px 1px -1px,
           rgb(0 0 0 / 14%) 0px 1px 1px 0px, rgb(0 0 0 / 12%) 0px 1px 3px 0px;
-        border-radius: 4px;
+          border-radius: 4px;
       }
       .screenshot i {
-        margin-top: 4px;
-        display: block;
+          margin-top: 4px;
+          display: block;
       }
       .videoWrapper {
-        position: relative;
-        padding-bottom: 56.25%; /* 16:9 */
-        height: 0;
-        margin-bottom: 25px;
-        background: #ccc;
+          position: relative;
+          padding-bottom: 56.25%; /* 16:9 */
+          height: 0;
+          margin-bottom: 25px;
+          background: #ccc;
       }
       .hidden {
-        display: none;
+          display: none;
       }
       .content pre {
-        display: block;
-        padding-left: 8px;
-        overflow-y: scroll;
+          display: block;
+          padding-left: 8px;
+          overflow-y: scroll;
       }
       .footer {
-        margin-top: 24px;
-        border-top: 1px solid #ccc;
-        padding-top: 24px;
-        text-align: center;
+          margin-top: 24px;
+          border-top: 1px solid #ccc;
+          padding-top: 24px;
+          text-align: center;
       }
       .footer .initiative {
-        font-style: italic;
-        margin-top: 16px;
+          font-style: italic;
+          margin-top: 16px;
       }
       table {
-        border-spacing: 0;
+          border-spacing: 0;
       }
       td {
-        padding: 8px;
-        border-bottom: 1px solid #ccc;
+          padding: 8px;
+          border-bottom: 1px solid #ccc;
       }
       @media (prefers-color-scheme: dark) {
-        body {
-          background-color: #333;
-          color: #fff;
-        }
-        a {
-          color: #58a6ff;
-        }
+          body {
+              background-color: #333;
+              color: #fff;
+          }
+          a {
+              color: #58a6ff;
+          }
       }
-    </style>
-    <script module>
-      import(
-        // We import locally for this test repo setup. For use in real scenarios, use with the commented line!
-        window.location.hostname === "localhost"
-          ? "/dist/web/install-button.js"
-          : "./js/modules/install-button.js"
-          //: "https://unpkg.com/tasmota-esp-web-tools/dist/web/install-button.js?module"
+  </style>
+  <script module>
+    import(
+      // 在此测试仓库设置中我们本地导入。实际使用场景中，请使用注释掉的行！
+      window.location.hostname === "localhost"
+        ? "/dist/web/install-button.js"
+        : "./js/modules/install-button.js"
+      //: "https://unpkg.com/tasmota-esp-web-tools/dist/web/install-button.js?module"
       );
-    </script>
-  </head>
-  <body>
-    <div class="content">
-      <h1>ESP Web Tools next generation</h1>
-      <p>
-        User friendly tools to manage ESP8266 and ESP32 devices in the browser on <strong>Desktop and Android</strong>:
-      </p>
-      <ul>
-        <li>Install &amp; update firmware</li>
-        <li>Connect device to the Wi-Fi network</li>
-        <li>Visit the device's hosted web interface</li>
-        <li>Access logs and send terminal commands</li>
-        <li>
-          Add devices to
-          <a href="https://www.home-assistant.io">Home Assistant</a>
-        </li>
-        <li>
-          <strong>🆕 Manage LittleFS filesystems</strong> - Upload, download, and organize files
-        </li>
-        <li>Flashing from Android mobile devices</li>
-      </ul>
+  </script>
+</head>
+<body>
+<div class="content">
+  <h1>ESP Web Tools 下一代</h1>
+  <p>
+    用户友好的工具，用于在<strong>桌面和Android</strong>浏览器中管理ESP8266和ESP32设备：
+  </p>
+  <ul>
+    <li>安装和更新固件</li>
+    <li>将设备连接到Wi-Fi网络</li>
+    <li>访问设备托管的Web界面</li>
+    <li>查看日志并发送终端命令</li>
+    <li>
+      将设备添加到
+      <a href="https://www.home-assistant.io">Home Assistant</a>
+    </li>
+    <li>
+      <strong>🆕 管理LittleFS文件系统</strong> - 上传、下载和组织文件
+    </li>
+    <li>从Android移动设备刷写</li>
+  </ul>
 
-      <h2 id="demo">Try a live demo</h2>
-      <p>
-        This demo will install
-        <a href="https://esphome.io">ESPHome</a>. To get started, connect an ESP
-        device to your computer and hit the button:
-      </p>
-      <p>
-        <label for="baudRate" style="font-weight: 600;">Flash Speed:</label>
-        <select id="baudRate" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; cursor: pointer; min-width: 200px; margin-left: 10px;">
-          <option value="">115200 Baud (Default)</option>
-          <option value="230400">230400 Baud</option>
-          <option value="460800">460800 Baud</option>
-          <option value="921600">921600 Baud</option>
-          <option value="1500000">1500000 Baud</option>
-          <option value="2000000" selected>2000000 Baud (Recommended)</option>
-        </select>
-      </p>
-      <esp-web-install-button
-        id="installButton"
-        manifest="https://firmware.esphome.io/esphome-web/manifest.json"
-        baud-rate="2000000"
-      >
-        <i slot="unsupported">
-          The demo is not available because your browser does not support Web
-          Serial. Open this page in Google Chrome or Microsoft Edge instead<span
-            class="not-supported-i hidden"
-          >
-            (but not on your iOS device)</span
-          >.
-        </i>
-      </esp-web-install-button>
+  <h2 id="demo">尝试实时演示</h2>
+  <p>
+    此演示将安装
+    <a href="https://esphome.io">ESPHome</a>。开始前，将ESP设备连接到计算机，然后点击按钮：
+  </p>
+  <p>
+    <label for="baudRate" style="font-weight: 600;">刷写速度：</label>
+    <select id="baudRate" style="padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; cursor: pointer; min-width: 200px; margin-left: 10px;">
+      <option value="">115200 波特（默认）</option>
+      <option value="230400">230400 波特</option>
+      <option value="460800">460800 波特</option>
+      <option value="921600">921600 波特</option>
+      <option value="1500000">1500000 波特</option>
+      <option value="2000000" selected>2000000 波特（推荐）</option>
+    </select>
+  </p>
+  <esp-web-install-button
+    id="installButton"
+    manifest="https://firmware.esphome.io/esphome-web/manifest.json"
+    baud-rate="2000000"
+  >
+    <i slot="unsupported">
+      演示不可用，因为您的浏览器不支持Web串口。请在Google Chrome或Microsoft Edge中打开此页面<span
+      class="not-supported-i hidden"
+    >（但不要在您的iOS设备上）</span>。
+    </i>
+  </esp-web-install-button>
 
-      <h2 id="used-by">Products using ESP Web Tools</h2>
-      <div class="projects">
-        <a
-          href="https://arendst.github.io/Tasmota-firmware/"
-          target="_blank"
-          class="project"
-        >
-          <div class="logo">
-            <img src="static/logos/tasmota.svg" alt="Tasmota logo" />
-          </div>
-          <div class="name">Tasmota</div>
-        </a>
-        <a href="https://td-er.nl/ESPEasy/" target="_blank" class="project">
-          <div class="logo">
-            <img src="static/logos/espeasy.png" alt="ESPEasy logo" />
-          </div>
-          <div class="name">ESPEasy</div>
-        </a>
-        <a href="https://install.wled.me" target="_blank" class="project">
-          <div class="logo">
-            <img src="static/logos/wled.png" alt="WLED logo" />
-          </div>
-          <div class="name">WLED</div>
-        </a>
-        <a
-          href="https://canair.io/installer.html"
-          target="_blank"
-          class="project"
-        >
-          <div class="logo">
-            <img src="static/logos/canairio.png" alt="CanAirIO logo" />
-          </div>
-          <div class="name">CanAirIO</div>
-        </a>
-        <a
-          href="https://sle118.github.io/squeezelite-esp32-installer/"
-          target="_blank"
-          class="project"
-        >
-          <div class="logo">
-            <img
-              src="static/logos/squeezelite-esp32.png"
-              alt="Squeezelite-ESP32 logo"
-            />
-          </div>
-          <div class="name">Squeezelite-ESP32</div>
-        </a>
-        <a
-          href="https://2smart.com/docs-resources/platform-updates/platform-updates-13-07-2022"
-          target="_blank"
-          class="project"
-        >
-          <div class="logo">
-            <img src="static/logos/2smart.png" alt="2Smart logo" />
-          </div>
-          <div class="name">2Smart</div>
-        </a>
-        <a href="https://clockwise.page" target="_blank" class="project">
-          <div class="logo">
-            <img src="static/logos/clockwise.png" alt="Clockwise logo" />
-          </div>
-          <div class="name">Clockwise</div>
-        </a>
-        <a
-          href="https://sblantipodi.github.io/glow_worm_luciferin"
-          target="_blank"
-          class="project"
-        >
-          <div class="logo">
-            <img
-              src="static/logos/luciferin_logo.png"
-              alt="Firefly Luciferin logo"
-            />
-          </div>
-          <div class="name">Luciferin</div>
-        </a>
-        <a href="https://web.esphome.io" target="_blank" class="project">
-          <div class="logo">
-            <img src="static/logos/esphome.svg" alt="ESPHome logo" />
-          </div>
-          <div class="name">ESPHome</div>
-        </a>
+  <h2 id="used-by">使用ESP Web Tools的产品</h2>
+  <div class="projects">
+    <a
+      href="https://arendst.github.io/Tasmota-firmware/"
+      target="_blank"
+      class="project"
+    >
+      <div class="logo">
+        <img src="static/logos/tasmota.svg" alt="Tasmota logo" />
       </div>
-
-      <h2>How it works</h2>
-      <p>
-        ESP Web Tools works by combining
-        <a href="https://developer.mozilla.org/docs/Web/API/Web_Serial_API"
-          >Web Serial</a
-        >, <a href="https://www.improv-wifi.com/">Improv Wi-Fi</a> (optional),
-        and a manifest which describes the firmware. ESP Web Tools detects the
-        chipset of the connected ESP device and automatically selects the right
-        firmware variant from the manifest.
-      </p>
-      <p>
-        Web Serial is available in Google Chrome and Microsoft Edge
-        browsers<span class="not-supported-i hidden">
-          (but not on your iOS device)</span
-        >. <strong>Android is now fully supported</strong> using WebUSB with Chrome 61+ and USB OTG.
-      </p>
-
-      <h3 id="improv">Configuring Wi-Fi</h3>
-      <p>
-        ESP Web Tools supports the
-        <a href="https://www.improv-wifi.com/serial"
-          >Improv Wi-Fi serial standard</a
-        >. This is an open standard to allow configuring Wi-Fi via the serial
-        port.
-      </p>
-      <p>
-        If the firmware supports Improv, a user will be asked to connect the
-        device to the network after installing the firmware. Once connected, the
-        device can send the user to a URL to finish configuration. For example,
-        this can be a link to the device's IP address where it serves a local
-        UI.
-      </p>
-      <p>
-        At any time in the future a user can use ESP Web Tools to find the
-        device link or to reconfigure the Wi-Fi settings without doing a
-        reinstall.
-      </p>
-      <p class="screenshot">
+      <div class="name">Tasmota</div>
+    </a>
+    <a href="https://td-er.nl/ESPEasy/" target="_blank" class="project">
+      <div class="logo">
+        <img src="static/logos/espeasy.png" alt="ESPEasy logo" />
+      </div>
+      <div class="name">ESPEasy</div>
+    </a>
+    <a href="https://install.wled.me" target="_blank" class="project">
+      <div class="logo">
+        <img src="static/logos/wled.png" alt="WLED logo" />
+      </div>
+      <div class="name">WLED</div>
+    </a>
+    <a
+      href="https://canair.io/installer.html"
+      target="_blank"
+      class="project"
+    >
+      <div class="logo">
+        <img src="static/logos/canairio.png" alt="CanAirIO logo" />
+      </div>
+      <div class="name">CanAirIO</div>
+    </a>
+    <a
+      href="https://sle118.github.io/squeezelite-esp32-installer/"
+      target="_blank"
+      class="project"
+    >
+      <div class="logo">
         <img
-          src="./static/screenshots/dashboard.png"
-          alt="Screenshot showing ESP Web Tools dialog offering visting the device, adding it to Home Assistant, change Wi-Fi, show logs and console and reset data."
+          src="static/logos/squeezelite-esp32.png"
+          alt="Squeezelite-ESP32 logo"
         />
-        <i>Screenshot showing the ESP Web Tools interface</i>
-      </p>
-
-      <h3 id="logs">Viewing logs & sending commands</h3>
-      <p>
-        ESP Web Tools allows users to open a serial console to see the logs and
-        send commands.
-      </p>
-      <p class="screenshot">
+      </div>
+      <div class="name">Squeezelite-ESP32</div>
+    </a>
+    <a
+      href="https://2smart.com/docs-resources/platform-updates/platform-updates-13-07-2022"
+      target="_blank"
+      class="project"
+    >
+      <div class="logo">
+        <img src="static/logos/2smart.png" alt="2Smart logo" />
+      </div>
+      <div class="name">2Smart</div>
+    </a>
+    <a href="https://clockwise.page" target="_blank" class="project">
+      <div class="logo">
+        <img src="static/logos/clockwise.png" alt="Clockwise logo" />
+      </div>
+      <div class="name">Clockwise</div>
+    </a>
+    <a
+      href="https://sblantipodi.github.io/glow_worm_luciferin"
+      target="_blank"
+      class="project"
+    >
+      <div class="logo">
         <img
-          src="./static/screenshots/logs.png"
-          alt="Screenshot showing ESP Web Tools dialog with a console showing ESPHome logs and a terminal prompt to sent commands."
+          src="static/logos/luciferin_logo.png"
+          alt="Firefly Luciferin logo"
         />
-        <i>Screenshot showing the ESP Web Tools logs & console</i>
-      </p>
+      </div>
+      <div class="name">Luciferin</div>
+    </a>
+    <a href="https://web.esphome.io" target="_blank" class="project">
+      <div class="logo">
+        <img src="static/logos/esphome.svg" alt="ESPHome logo" />
+      </div>
+      <div class="name">ESPHome</div>
+    </a>
+  </div>
 
-      <h2 id="add-website">Adding ESP Web Tools to your website</h2>
-      <p>
-        To add this to your own website, you need to include the ESP Web Tools
-        JavaScript files on your website, create a manifest file and add the ESP
-        Web Tools button HTML.
-      </p>
-      <p>
-        <a href="https://tasmota.github.io/install/"
-          >Click here to see a full example.</a
-        >
-      </p>
-      <p>
-        <b>Step 1:</b> Load ESP Web Tools JavaScript on your website by adding
-        the following HTML snippet.
-      </p>
-      <pre>
+  <h2>工作原理</h2>
+  <p>
+    ESP Web Tools通过结合
+    <a href="https://developer.mozilla.org/docs/Web/API/Web_Serial_API"
+    >Web串口</a
+    >、<a href="https://www.improv-wifi.com/">Improv Wi-Fi</a>（可选）和描述固件的清单文件来工作。ESP Web Tools检测连接的ESP设备的芯片组，并从清单中自动选择正确的固件变体。
+  </p>
+  <p>
+    Web串口可在Google Chrome和Microsoft Edge浏览器中使用<span
+    class="not-supported-i hidden"
+  >（但不在您的iOS设备上）</span>。现在通过Chrome 61+和USB OTG<strong>完全支持Android</strong>。
+  </p>
+
+  <h3 id="improv">配置Wi-Fi</h3>
+  <p>
+    ESP Web Tools支持
+    <a href="https://www.improv-wifi.com/serial"
+    >Improv Wi-Fi串行标准</a
+    >。这是一个开放标准，允许通过串口配置Wi-Fi。
+  </p>
+  <p>
+    如果固件支持Improv，安装固件后将提示用户将设备连接到网络。连接后，设备可以将用户引导至URL以完成配置。例如，可以是设备IP地址的链接，在那里它提供本地UI。
+  </p>
+  <p>
+    将来任何时候，用户都可以使用ESP Web Tools找到设备链接或重新配置Wi-Fi设置，而无需重新安装。
+  </p>
+  <p class="screenshot">
+    <img
+      src="./static/screenshots/dashboard.png"
+      alt="截图显示ESP Web Tools对话框，提供访问设备、将其添加到Home Assistant、更改Wi-Fi、显示日志和控制台以及重置数据的选项。"
+    />
+    <i>截图显示ESP Web Tools界面</i>
+  </p>
+
+  <h3 id="logs">查看日志和发送命令</h3>
+  <p>
+    ESP Web Tools允许用户打开串行控制台查看日志并发送命令。
+  </p>
+  <p class="screenshot">
+    <img
+      src="./static/screenshots/logs.png"
+      alt="截图显示ESP Web Tools对话框，包含一个显示ESPHome日志的控制台和一个用于发送命令的终端提示符。"
+    />
+    <i>截图显示ESP Web Tools日志和控制台</i>
+  </p>
+
+  <h2 id="add-website">将ESP Web Tools添加到您的网站</h2>
+  <p>
+    要将其添加到您自己的网站，您需要在网站上包含ESP Web Tools JavaScript文件，创建一个清单文件，并添加ESP Web Tools按钮HTML。
+  </p>
+  <p>
+    <a href="https://tasmota.github.io/install/"
+    >点击此处查看完整示例。</a
+    >
+  </p>
+  <p>
+    <b>步骤1：</b>通过添加以下HTML片段加载ESP Web Tools JavaScript。
+  </p>
+  <pre>
 &lt;script
   type="module"
   src="https://unpkg.com/tasmota-esp-web-tools/dist/web/install-button.js?module"
 >&lt;/script></pre
-      >
-      <p>
-        (If you prefer to locally host the JavaScript,
-        <a href="https://unpkg.com/browse/tasmota-esp-web-tools/dist/web/"
-          >download it here</a
-        >)
-      </p>
-      <p>
-        <b>Step 2:</b> Find a place on your page where you want the button to
-        appear and include the following bit of HTML. Update the
-        <code>manifest</code> attribute to point at your manifest file.
-      </p>
-      <pre>
+  >
+  <p>
+    （如果您希望本地托管JavaScript，
+    <a href="https://unpkg.com/browse/tasmota-esp-web-tools/dist/web/"
+    >请在此下载</a
+    >）
+  </p>
+  <p>
+    <b>步骤2：</b>在您的页面上找到一个位置放置按钮，并包含以下HTML片段。更新
+    <code>manifest</code>属性以指向您的清单文件。
+  </p>
+  <pre>
 &lt;esp-web-install-button
   manifest="https://firmware.esphome.io/esphome-web/manifest.json"
 >&lt;/esp-web-install-button></pre
-      >
-      <p>
-        <b>Optional:</b> Configure flash speed (baud rate) for faster flashing.
-        By default, 115200 baud is used for maximum compatibility. You can increase
-        the speed by adding the <code>baud-rate</code> attribute:
-      </p>
-      <pre>
+  >
+  <p>
+    <b>可选：</b>配置刷写速度（波特率）以实现更快的刷写。默认使用115200波特以实现最大兼容性。您可以通过添加<code>baud-rate</code>属性来提高速度：
+  </p>
+  <pre>
 &lt;esp-web-install-button
   manifest="https://firmware.esphome.io/esphome-web/manifest.json"
   baud-rate="2000000"
 >&lt;/esp-web-install-button></pre
-      >
-      <p>
-        Available baud rates: <code>230400</code>, <code>460800</code>, 
-        <code>921600</code>, <code>1500000</code>, <code>2000000</code> (recommended for modern chips).
-        Higher speeds are ~17x faster but require compatible USB-Serial chips.
-      </p>
-      <p>
-        <b>Note:</b> ESP Web Tools requires that your website is served over
-        <code>https://</code> to work. This is a Web Serial security
-        requirement.
-      </p>
-      <p>
-        If your manifest or the firmware files are hosted on another server,
-        make sure you configure
-        <a href="https://developer.mozilla.org/docs/Web/HTTP/CORS"
-          >the CORS-headers</a
-        >
-        such that your website is allowed to fetch those files by adding the
-        header
-        <code
-          >Access-Control-Allow-Origin: https://domain-of-your-website.com</code
-        >.
-      </p>
+  >
+  <p>
+    可用波特率：<code>230400</code>、<code>460800</code>、
+    <code>921600</code>、<code>1500000</code>、<code>2000000</code>（推荐用于现代芯片）。更高的速度大约快17倍，但需要兼容的USB串行芯片。
+  </p>
+  <p>
+    <b>注意：</b>ESP Web Tools要求您的网站通过<code>https://</code>提供才能工作。这是Web串口的安全要求。
+  </p>
+  <p>
+    如果您的清单或固件文件托管在另一台服务器上，请确保配置
+    <a href="https://developer.mozilla.org/docs/Web/HTTP/CORS"
+    >CORS标头</a
+    >，以便允许您的网站获取这些文件，通过添加标头
+    <code
+    >Access-Control-Allow-Origin: https://domain-of-your-website.com</code
+    >。
+  </p>
 
-      <p>
-        ESP Web Tools can also be integrated in your projects by installing it
-        <a href="https://www.npmjs.com/package/tasmota-esp-web-tools">via NPM</a
-        >.
-      </p>
-      <h3 id="preparing-firmware">Preparing your firmware</h3>
-      <p>
-        ESP32 firmware is split into 4 different files. When these files are
-        installed using the command-line tool <code>esptool</code>, it will
-        patch flash frequency, flash size and flash mode to match the target
-        device. ESP Web Tools is not able to do this on the fly, so you will
-        need to use <code>esptool</code> to create the single binary file and
-        use that with ESP Web Tools.
-      </p>
-      <p>
-        Create a single binary using <code>esptool</code> with the following
-        command:
-      </p>
-      <pre>
+  <p>
+    ESP Web Tools也可以通过<a href="https://www.npmjs.com/package/tasmota-esp-web-tools">NPM安装</a>集成到您的项目中。
+  </p>
+  <h3 id="preparing-firmware">准备您的固件</h3>
+  <p>
+    ESP32固件分为4个不同的文件。当使用命令行工具<code>esptool</code>安装这些文件时，它会修补闪存频率、闪存大小和闪存模式以匹配目标设备。ESP Web Tools无法即时执行此操作，因此您需要使用<code>esptool</code>创建单个二进制文件，并将其与ESP Web Tools一起使用。
+  </p>
+  <p>
+    使用以下<code>esptool</code>命令创建单个二进制文件：
+  </p>
+  <pre>
 esptool --chip esp32 merge-bin \
   -o merged-firmware.bin \
   --flash-mode dio \
@@ -433,25 +397,20 @@ esptool --chip esp32 merge-bin \
   0x8000 partitions.bin \
   0xe000 boot.bin \
   0x10000 your_app.bin</pre
-      >
-      <p>
-        If your memory type is <code>opi_opi</code> or <code>opi_qspi</code>,
-        set your flash mode to be <code>dout</code>. Else, if your flash mode is
-        <code>qio</code> or <code>qout</code>, override your flash mode to be
-        <code>dio</code>.
-      </p>
-      <h3 id="manifest">Creating your manifest</h3>
-      <p>
-        Manifests describe the firmware that you want to offer the user to
-        install. It allows specifying different builds for the different types
-        of ESP devices. Current supported chip families are
-        <code>ESP8266</code>, <code>ESP32</code>, <code>ESP32-C2</code>,
-        <code>ESP32-C3</code>, <code>ESP32-C5</code>, <code>ESP32-C6</code>,
-        <code>ESP32-C61</code>, <code>ESP32-S2</code>, <code>ESP32-S3</code>,
-        <code>ESP32-H2</code> and <code>ESP32-P4</code>.
-        The correct build will be automatically selected based on type of the connected device.
-      </p>
-      <pre>
+  >
+  <p>
+    如果您的内存类型是<code>opi_opi</code>或<code>opi_qspi</code>，请将闪存模式设置为<code>dout</code>。否则，如果您的闪存模式是<code>qio</code>或<code>qout</code>，请将闪存模式覆盖为<code>dio</code>。
+  </p>
+  <h3 id="manifest">创建您的清单</h3>
+  <p>
+    清单描述您希望提供给用户安装的固件。它允许为不同类型的ESP设备指定不同的构建。当前支持的芯片系列有：
+    <code>ESP8266</code>、<code>ESP32</code>、<code>ESP32-C2</code>、
+    <code>ESP32-C3</code>、<code>ESP32-C5</code>、<code>ESP32-C6</code>、
+    <code>ESP32-C61</code>、<code>ESP32-S2</code>、<code>ESP32-S3</code>、
+    <code>ESP32-H2</code> 和 <code>ESP32-P4</code>。
+    将根据连接设备的类型自动选择正确的构建。
+  </p>
+  <pre>
 {
   "name": "ESPHome",
   "version": "2021.11.0",
@@ -473,56 +432,31 @@ esptool --chip esp32 merge-bin \
     }
   ]
 }</pre
-      >
-      <p>
-        Each build contains a list of parts to be installed to the ESP device.
-        Each part consists of a path to the file and an offset on the flash
-        where it should be installed. Part paths are resolved relative to the
-        path of the manifest, but can also be URLs to other hosts.
-      </p>
-      <p>
-        If your firmware is supported by Home Assistant, you can add the
-        optional key <code>home_assistant_domain</code>. If present, ESP Web
-        Tools will link the user to add this device to Home Assistant.
-      </p>
-      <p>
-        By default a new installation will erase all data before installation.
-        If you want to leave this choice to the user, set the optional manifest
-        key
-        <code>new_install_prompt_erase</code> to <code>true</code>. ESP Web
-        Tools offers users a new installation if it is unable to detect the
-        current firmware of the device (via Improv Serial) or if the detected
-        firmware does not match the name specififed in the manifest.
-      </p>
-      <p>
-        When a firmware is first installed on a device, it might need to do some
-        time consuming tasks like initializing the file system. By default ESP
-        Web Tools will wait 10 seconds to receive an Improv Serial response to
-        indicate that the boot is completed. You can increase this timeout by
-        setting the optional manifest key
-        <code>new_install_improv_wait_time</code> to the number of seconds to
-        wait. Set to <code>0</code> to disable Improv Serial detection.
-      </p>
-      <p>
-        If your product accepts donations you can add
-        <code>funding_url</code> to your manifest. This allows you to link to
-        your page explaining the user how they can fund development. This link
-        is visible in the ESP Web Tools menu when connected to a device running
-        your firmware (as detected via Improv).
-      </p>
-      <p>
-        ESP Web Tools allows you to provide your own check if the device is
-        running the same firmware as specified in the manifest. This check can
-        be setting the <code>overrides</code> property on
-        <code>&lt;esp-web-install-button&gt;</code>. The value is an object
-        containing a
-        <code>checkSameFirmware(manifest, improvInfo)</code> function. The
-        <code>manifest</code> parameter is your manifest and
-        <code>improvInfo</code> is the information returned from Improv:
-        <code>{ name, firmware, version, chipFamily }</code>. This check is only
-        called if the device firmware was detected via Improv.
-      </p>
-      <pre>
+  >
+  <p>
+    每个构建包含要安装到ESP设备的部件列表。每个部件由文件路径和闪存上的偏移量组成，应安装在该偏移量处。部件路径是相对于清单路径解析的，但也可以是其他主机的URL。
+  </p>
+  <p>
+    如果您的固件受Home Assistant支持，您可以添加可选的键<code>home_assistant_domain</code>。如果存在，ESP Web Tools将链接用户将此设备添加到Home Assistant。
+  </p>
+  <p>
+    默认情况下，新安装将在安装前擦除所有数据。如果您希望将此选择留给用户，请将可选的清单键
+    <code>new_install_prompt_erase</code>设置为<code>true</code>。如果ESP Web Tools无法检测到设备的当前固件（通过Improv串行），或者检测到的固件与清单中指定的名称不匹配，则会向用户提供新安装选项。
+  </p>
+  <p>
+    当固件首次安装在设备上时，它可能需要执行一些耗时的任务，如初始化文件系统。默认情况下，ESP Web Tools将等待10秒以接收Improv串行响应，指示启动完成。您可以通过将可选的清单键
+    <code>new_install_improv_wait_time</code>设置为等待的秒数来增加此超时时间。设置为<code>0</code>以禁用Improv串行检测。
+  </p>
+  <p>
+    如果您的产品接受捐赠，您可以将<code>funding_url</code>添加到清单中。这允许您链接到您的页面，向用户解释他们如何资助开发。当连接到运行您的固件的设备（通过Improv检测）时，此链接在ESP Web Tools菜单中可见。
+  </p>
+  <p>
+    ESP Web Tools允许您提供自己的检查，以确定设备是否运行清单中指定的相同固件。可以通过在<code>&lt;esp-web-install-button&gt;</code>上设置<code>overrides</code>属性来实现此检查。该值是一个包含
+    <code>checkSameFirmware(manifest, improvInfo)</code>函数的对象。
+    <code>manifest</code>参数是您的清单，<code>improvInfo</code>是从Improv返回的信息：
+    <code>{ name, firmware, version, chipFamily }</code>。仅当通过Improv检测到设备固件时才会调用此检查。
+  </p>
+  <pre>
 const button = document.querySelector('esp-web-install-button');
 button.overrides = {
   checkSameFirmware(manifest, improvInfo) {
@@ -531,75 +465,71 @@ button.overrides = {
     return manifestFirmware.includes(deviceFirmware);
   }
 };</pre
-      >
+  >
 
-      <h3 id="customize">Customizing the look and feel</h3>
-      <p>
-        You can change the colors of the default UI elements with CSS custom
-        properties (variables), the following variables are available:
-      </p>
-      <ul>
-        <li><code>--esp-tools-button-color</code></li>
-        <li><code>--esp-tools-button-text-color</code></li>
-      </ul>
-      <p>There are also some attributes that can be used for styling:</p>
-      <table>
-        <tr>
-          <td><code>install-supported</code></td>
-          <td>Added if installing firmware is supported</td>
-        </tr>
-        <tr>
-          <td>
-            <code>install-unsupported</code>
-          </td>
-          <td>Added if installing firmware is not supported</td>
-        </tr>
-      </table>
-      <h4>Replace the button and message with a custom one</h4>
-      <p>
-        You can replace both the activation button and the message that is shown
-        when the user uses an unsupported browser or non-secure context with
-        your own elements. This can be done using the <code>activate</code>,
-        <code>unsupported</code> and <code>not-allowed</code> slots:
-      </p>
-      <pre>
+  <h3 id="customize">自定义外观</h3>
+  <p>
+    您可以使用CSS自定义属性（变量）更改默认UI元素的颜色，以下变量可用：
+  </p>
+  <ul>
+    <li><code>--esp-tools-button-color</code></li>
+    <li><code>--esp-tools-button-text-color</code></li>
+  </ul>
+  <p>还有一些可用于样式的属性：</p>
+  <table>
+    <tr>
+      <td><code>install-supported</code></td>
+      <td>如果支持安装固件则添加</td>
+    </tr>
+    <tr>
+      <td>
+        <code>install-unsupported</code>
+      </td>
+      <td>如果不支持安装固件则添加</td>
+    </tr>
+  </table>
+  <h4>用自定义按钮和消息替换</h4>
+  <p>
+    您可以使用自己的元素替换激活按钮以及当用户使用不受支持的浏览器或非安全上下文时显示的消息。可以使用<code>activate</code>、<code>unsupported</code>和<code>not-allowed</code>插槽来完成：
+  </p>
+  <pre>
 &lt;esp-web-install-button
   manifest="https://firmware.esphome.io/esphome-web/manifest.json"
 >
-  &lt;button slot="activate">Custom install button&lt;/button>
-  &lt;span slot="unsupported">Ah snap, your browser doesn't work!&lt;/span>
-  &lt;span slot="not-allowed">Ah snap, you are not allowed to use this on HTTP!&lt;/span>
+  &lt;button slot="activate">自定义安装按钮&lt;/button>
+  &lt;span slot="unsupported">哎呀，您的浏览器不支持！&lt;/span>
+  &lt;span slot="not-allowed">哎呀，不允许在HTTP上使用！&lt;/span>
 &lt;/esp-web-install-button>
     </pre
-      >
-      <div class="footer">
-        <div class="initiative">
-          ESP Web Tools is
-          <a href="https://github.com/jason2866/esp-web-tools">open source</a>
-        </div>
-      </div>
+    >
+  <div class="footer">
+    <div class="initiative">
+      ESP Web Tools是
+      <a href="https://github.com/jason2866/esp-web-tools">开源的</a>
     </div>
-    <script>
-      if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-        document.querySelector(".not-supported-i").classList.remove("hidden");
-      }
+  </div>
+</div>
+<script>
+  if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+    document.querySelector(".not-supported-i").classList.remove("hidden");
+  }
 
-      // Baud rate selection
-      const baudRateSelect = document.getElementById('baudRate');
-      const installButton = document.getElementById('installButton');
+  // 波特率选择
+  const baudRateSelect = document.getElementById('baudRate');
+  const installButton = document.getElementById('installButton');
 
-      if (baudRateSelect && installButton) {
-        baudRateSelect.addEventListener('change', function() {
-          const selectedRate = this.value;
-          
-          // Update install button
-          if (selectedRate === '') {
-            installButton.removeAttribute('baud-rate');
-          } else {
-            installButton.setAttribute('baud-rate', selectedRate);
-          }
-        });
+  if (baudRateSelect && installButton) {
+    baudRateSelect.addEventListener('change', function() {
+      const selectedRate = this.value;
+
+      // 更新安装按钮
+      if (selectedRate === '') {
+        installButton.removeAttribute('baud-rate');
+      } else {
+        installButton.setAttribute('baud-rate', selectedRate);
       }
-    </script>
-  </body>
+    });
+  }
+</script>
+</body>
 </html>

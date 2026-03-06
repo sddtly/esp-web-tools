@@ -3,7 +3,7 @@ import type { EwtInstallDialog } from "./install-dialog";
 import { connect } from "./connect";
 import { corsProxyFetch } from "./util/cors-proxy";
 
-// Expose corsProxyFetch globally for external scripts
+// 暴露 corsProxyFetch 到全局以供外部脚本使用
 (window as any).espWebToolsCorsProxyFetch = corsProxyFetch;
 
 export class InstallButton extends HTMLElement {
@@ -106,8 +106,8 @@ export class InstallButton extends HTMLElement {
     if (!InstallButton.isSupported || !InstallButton.isAllowed) {
       this.toggleAttribute("install-unsupported", true);
       this.renderRoot.innerHTML = !InstallButton.isAllowed
-        ? "<slot name='not-allowed'>You can only install ESP devices on HTTPS websites or on the localhost.</slot>"
-        : "<slot name='unsupported'>Your browser does not support installing things on ESP devices. Use Google Chrome or Microsoft Edge (Desktop) or Chrome on Android with USB OTG.</slot>";
+        ? "<slot name='not-allowed'>您只能在 HTTPS 网站或 localhost 上安装 ESP 设备。</slot>"
+        : "<slot name='unsupported'>您的浏览器不支持在 ESP 设备上安装。请使用 Google Chrome 或 Microsoft Edge（桌面版）或带 USB OTG 的 Android 版 Chrome。</slot>";
       return;
     }
 
@@ -122,7 +122,7 @@ export class InstallButton extends HTMLElement {
 
     slot.name = "activate";
     const button = document.createElement("button");
-    button.innerText = "CONNECT";
+    button.innerText = "连接";
     slot.append(button);
     if (
       "adoptedStyleSheets" in Document.prototype &&

@@ -65,7 +65,7 @@ export class EwtConsole extends HTMLElement {
       const input = this.shadowRoot!.querySelector("input")!;
 
       this.addEventListener("click", () => {
-        // Only focus input if user didn't select some text
+        // 仅在用户未选中文本时聚焦输入框
         if (getSelection()?.toString() === "") {
           input.focus();
         }
@@ -89,18 +89,14 @@ export class EwtConsole extends HTMLElement {
   }
 
   private async _connect(abortSignal: AbortSignal) {
-    this.logger.debug("Starting console read loop");
+    this.logger.debug("开始控制台读取循环");
 
-    // Check if port.readable is available
+    // 检查 port.readable 是否可用
     if (!this.port.readable) {
       this._console!.addLine("");
       this._console!.addLine("");
-      this._console!.addLine(
-        `Terminal disconnected: Port readable stream not available`,
-      );
-      this.logger.error(
-        "Port readable stream not available - port may need to be reopened at correct baudrate",
-      );
+      this._console!.addLine(`终端断开连接：端口可读流不可用`);
+      this.logger.error("端口可读流不可用 - 可能需要以正确波特率重新打开端口");
       return;
     }
 
@@ -123,15 +119,15 @@ export class EwtConsole extends HTMLElement {
       if (!abortSignal.aborted) {
         this._console!.addLine("");
         this._console!.addLine("");
-        this._console!.addLine("Terminal disconnected");
+        this._console!.addLine("终端断开连接");
       }
     } catch (e) {
       this._console!.addLine("");
       this._console!.addLine("");
-      this._console!.addLine(`Terminal disconnected: ${e}`);
+      this._console!.addLine(`终端断开连接：${e}`);
     } finally {
       await sleep(100);
-      this.logger.debug("Finished console read loop");
+      this.logger.debug("控制台读取循环结束");
     }
   }
 
@@ -147,7 +143,7 @@ export class EwtConsole extends HTMLElement {
     try {
       writer.releaseLock();
     } catch (err) {
-      console.error("Ignoring release lock error", err);
+      console.error("忽略释放锁错误", err);
     }
   }
 
@@ -159,12 +155,12 @@ export class EwtConsole extends HTMLElement {
   }
 
   public async reset() {
-    this.logger.debug("Triggering reset.");
+    this.logger.debug("触发重置。");
     if (this.onReset) {
       try {
         await this.onReset();
       } catch (err) {
-        this.logger.error("Reset callback failed:", err);
+        this.logger.error("重置回调失败：", err);
       }
     }
     await new Promise((resolve) => setTimeout(resolve, 1000));

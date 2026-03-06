@@ -29,10 +29,10 @@ export interface Manifest {
   version: string;
   home_assistant_domain?: string;
   funding_url?: string;
-  /** @deprecated use `new_install_prompt_erase` instead */
+  /** @deprecated 请使用 `new_install_prompt_erase` 代替 */
   new_install_skip_erase?: boolean;
   new_install_prompt_erase?: boolean;
-  /* Time to wait to detect Improv Wi-Fi. Set to 0 to disable. */
+  /* 等待检测 Improv Wi-Fi 的时间。设置为 0 以禁用。 */
   new_install_improv_wait_time?: number;
   builds: Build[];
 }
@@ -42,7 +42,7 @@ export interface BaseFlashState {
   message: string;
   manifest?: Manifest;
   build?: Build;
-  chipFamily?: Build["chipFamily"] | "Unknown Chip";
+  chipFamily?: Build["chipFamily"] | "未知芯片";
   chipVariant?: string | null;
 }
 

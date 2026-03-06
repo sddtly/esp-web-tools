@@ -12,7 +12,7 @@ import { corsProxyFetch } from "./util/cors-proxy";
 
 export const flash = async (
   onEvent: (state: FlashState) => void,
-  esploader: any, // ESPLoader instance from tasmota-webserial-esptool
+  esploader: any, // ESPLoader 实例，来自 tasmota-webserial-esptool
   logger: Logger,
   manifestPath: string,
   eraseFirst: boolean,
@@ -45,17 +45,17 @@ export const flash = async (
     );
   }
 
-  // Use the provided ESPLoader instance - NO port logic here!
-  // For debugging
+  // 使用传入的 ESPLoader 实例 - 此处不处理端口逻辑！
+  // 用于调试
   (window as any).esploader = esploader;
 
   fireStateEvent({
     state: FlashStateType.INITIALIZING,
-    message: "Initializing...",
+    message: "正在初始化...",
     details: { done: false },
   });
 
-  // Only initialize if not already done
+  // 仅当尚未初始化时才进行初始化
   if (!esploader.chipFamily) {
     try {
       await esploader.initialize();
@@ -65,7 +65,7 @@ export const flash = async (
       fireStateEvent({
         state: FlashStateType.ERROR,
         message:
-          "Failed to initialize. Try resetting your device or holding the BOOT button while clicking INSTALL.",
+          "初始化失败。请尝试重置设备，或在点击 INSTALL 时按住 BOOT 按钮。",
         details: { error: FlashError.FAILED_INITIALIZING, details: err },
       });
       if (esploader.connected) {
@@ -80,12 +80,12 @@ export const flash = async (
 
   fireStateEvent({
     state: FlashStateType.INITIALIZING,
-    message: `Initialized. Found ${chipFamily}${chipVariant ? ` (${chipVariant})` : ""}`,
+    message: `初始化完成。发现 ${chipFamily}${chipVariant ? ` (${chipVariant})` : ""}`,
     details: { done: true },
   });
   fireStateEvent({
     state: FlashStateType.MANIFEST,
-    message: "Fetching manifest...",
+    message: "正在获取清单...",
     details: { done: false },
   });
 
@@ -94,7 +94,7 @@ export const flash = async (
   } catch (err: any) {
     fireStateEvent({
       state: FlashStateType.ERROR,
-      message: `Unable to fetch manifest: ${err}`,
+      message: `无法获取清单：${err}`,
       details: { error: FlashError.FAILED_MANIFEST_FETCH, details: err },
     });
     await esploader.disconnect();
@@ -102,12 +102,12 @@ export const flash = async (
   }
 
   build = manifest.builds.find((b) => {
-    // Match chipFamily and optionally chipVariant
+    // 匹配 chipFamily 并可选的 chipVariant
     if (b.chipFamily !== chipFamily) {
       return false;
     }
 
-    // If build specifies chipVariant, it must match
+    // 如果构建指定了 chipVariant，则必须匹配
     if (b.chipVariant && b.chipVariant !== chipVariant) {
       return false;
     }
@@ -118,7 +118,7 @@ export const flash = async (
   if (!build) {
     fireStateEvent({
       state: FlashStateType.ERROR,
-      message: `Your ${chipFamily}${chipVariant ? ` (${chipVariant})` : ""} is not supported by this firmware.`,
+      message: `您的 ${chipFamily}${chipVariant ? ` (${chipVariant})` : ""} 不受此固件支持。`,
       details: { error: FlashError.NOT_SUPPORTED, details: chipFamily },
     });
     await esploader.disconnect();
@@ -127,35 +127,35 @@ export const flash = async (
 
   fireStateEvent({
     state: FlashStateType.MANIFEST,
-    message: "Manifest fetched",
+    message: "清单获取成功",
     details: { done: true },
   });
 
   fireStateEvent({
     state: FlashStateType.PREPARING,
-    message: "Preparing installation...",
+    message: "正在准备安装...",
     details: { done: false },
   });
 
-  // The esploader passed in is always a stub (from _ensureStub())
-  // Baudrate was already set in _ensureStub()
+  // 传入的 esploader 始终是存根（来自 _ensureStub()）
+  // 波特率已在 _ensureStub() 中设置
   const espStub = esploader;
 
-  // Verify stub has chipFamily (should be copied in _ensureStub)
+  // 验证存根是否具有 chipFamily（应该在 _ensureStub 中复制）
   if (!espStub.chipFamily) {
-    logger.error("Stub missing chipFamily - this should not happen!");
+    logger.error("存根缺少 chipFamily - 这不应该发生！");
     fireStateEvent({
       state: FlashStateType.ERROR,
-      message: "Internal error: Stub not properly initialized",
+      message: "内部错误：存根未正确初始化",
       details: {
         error: FlashError.FAILED_INITIALIZING,
-        details: "Missing chipFamily",
+        details: "缺少 chipFamily",
       },
     });
     return;
   }
 
-  // Fetch firmware files
+  // 获取固件文件
   const filePromises = build.parts.map(async (part) => {
     const url = new URL(
       part.path,
@@ -163,14 +163,12 @@ export const flash = async (
     ).toString();
     const resp = await corsProxyFetch(url);
     if (!resp.ok) {
-      throw new Error(
-        `Downlading firmware ${part.path} failed: ${resp.status}`,
-      );
+      throw new Error(`下载固件 ${part.path} 失败：${resp.status}`);
     }
     return resp.arrayBuffer();
   });
 
-  // If firmwareBuffer is provided, use it instead of fetching
+  // 如果提供了 firmwareBuffer，则使用它而不是获取
   if (firmwareBuffer) {
     filePromises.push(Promise.resolve(firmwareBuffer.buffer as ArrayBuffer));
   }
@@ -196,33 +194,33 @@ export const flash = async (
 
   fireStateEvent({
     state: FlashStateType.PREPARING,
-    message: "Installation prepared",
+    message: "安装准备就绪",
     details: { done: true },
   });
 
-  // CRITICAL: Erase MUST be done BEFORE writing, if requested
+  // 关键：如果请求擦除，则必须在写入之前进行擦除
   if (eraseFirst) {
     fireStateEvent({
       state: FlashStateType.ERASING,
-      message: "Erasing flash...",
+      message: "正在擦除 flash...",
       details: { done: false },
     });
 
     try {
-      logger.log("Erasing flash memory. Please wait...");
+      logger.log("正在擦除 flash。请稍候...");
       await espStub.eraseFlash();
-      logger.log("Flash erased successfully");
+      logger.log("flash 擦除成功");
 
       fireStateEvent({
         state: FlashStateType.ERASING,
-        message: "Flash erased",
+        message: "flash 已擦除",
         details: { done: true },
       });
     } catch (err: any) {
-      logger.error(`Flash erase failed: ${err.message}`);
+      logger.error(`flash 擦除失败：${err.message}`);
       fireStateEvent({
         state: FlashStateType.ERROR,
-        message: `Failed to erase flash: ${err.message}`,
+        message: `擦除 flash 失败：${err.message}`,
         details: { error: FlashError.WRITE_FAILED, details: err },
       });
       await esploader.disconnect();
@@ -232,7 +230,7 @@ export const flash = async (
 
   fireStateEvent({
     state: FlashStateType.WRITING,
-    message: `Writing progress: 0 %`,
+    message: `写入进度：0 %`,
     details: {
       bytesTotal: totalSize,
       bytesWritten: 0,
@@ -260,7 +258,7 @@ export const flash = async (
           lastPct = newPct;
           fireStateEvent({
             state: FlashStateType.WRITING,
-            message: `Writing progress: ${newPct} %`,
+            message: `写入进度：${newPct} %`,
             details: {
               bytesTotal: totalSize,
               bytesWritten: totalBytesWritten + bytesWritten,
@@ -285,7 +283,7 @@ export const flash = async (
 
   fireStateEvent({
     state: FlashStateType.WRITING,
-    message: "Writing complete",
+    message: "写入完成",
     details: {
       bytesTotal: totalSize,
       bytesWritten: totalSize,
@@ -295,12 +293,12 @@ export const flash = async (
 
   await sleep(100);
 
-  // DON'T release locks after flash!
-  // Keep the stub and locks so the port can be used again
-  // (e.g., for Improv, Manage Filesystem, or another flash)
+  // 刷写后不要释放锁！
+  // 保留存根和锁，以便端口可以再次使用
+  // （例如用于 Improv、管理文件系统或再次刷写）
 
   fireStateEvent({
     state: FlashStateType.FINISHED,
-    message: "All done!",
+    message: "全部完成！",
   });
 };

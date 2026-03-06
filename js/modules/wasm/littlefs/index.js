@@ -1,16 +1,16 @@
 /**
- * LittleFS WebAssembly Bindings for ESPConnect
+ * LittleFS WebAssembly 绑定，用于 ESPConnect
  *
- * Provides TypeScript-first API for LittleFS with disk version control.
- * Supports DISK_VERSION_2_0 to prevent automatic migration of older filesystems.
+ * 提供 TypeScript 优先的 LittleFS API，支持磁盘版本控制。
+ * 支持 DISK_VERSION_2_0 以防止旧文件系统自动迁移。
  *
- * ESP-IDF Compatible Configuration:
- * - LFS_NAME_MAX=64 (filename length)
- * - LFS_ATTR_MAX=4 (metadata for timestamps)
- * - LFS_MULTIVERSION enabled
+ * ESP-IDF 兼容配置：
+ * - LFS_NAME_MAX=64（文件名长度）
+ * - LFS_ATTR_MAX=4（时间戳的元数据）
+ * - LFS_MULTIVERSION 启用
  */
 
-// Import Emscripten-generated module loader (converted to ES module)
+// 导入 Emscripten 生成的模块加载器（转换为 ES 模块）
 import createLittleFSModule from "./littlefs.js";
 
 const DEFAULT_BLOCK_SIZE = 4096;
@@ -19,24 +19,24 @@ const DEFAULT_LOOKAHEAD_SIZE = 32;
 const LFS_ERR_NOSPC = -28;
 
 /**
- * Maximum filename length (ESP-IDF default)
+ * 最大文件名长度（ESP-IDF 默认值）
  */
 export const LFS_NAME_MAX = 64;
 
 /**
- * LittleFS disk version 2.0 (0x00020000)
- * Use this for maximum compatibility with older implementations.
+ * LittleFS 磁盘版本 2.0 (0x00020000)
+ * 使用此版本以获得与旧实现的最大兼容性。
  */
 export const DISK_VERSION_2_0 = 0x00020000;
 
 /**
- * LittleFS disk version 2.1 (0x00020001)
- * Latest version with additional features.
+ * LittleFS 磁盘版本 2.1 (0x00020001)
+ * 包含附加功能的最新版本。
  */
 export const DISK_VERSION_2_1 = 0x00020001;
 
 /**
- * Format disk version as human-readable string (e.g., "2.0", "2.1")
+ * 将磁盘版本格式化为人类可读字符串（例如 "2.0"、"2.1"）
  */
 export function formatDiskVersion(version) {
   const major = (version >> 16) & 0xffff;
@@ -67,39 +67,39 @@ function createModuleConfig(wasmURL) {
 }
 
 /**
- * Create a new LittleFS instance
+ * 创建新的 LittleFS 实例
  * @param {LittleFSOptions} options
  * @returns {Promise<LittleFS>}
  */
 export async function createLittleFS(options = {}) {
-  console.info("[littlefs-wasm] createLittleFS() starting", options);
+  console.info("[littlefs-wasm] createLittleFS() 开始", options);
 
   const blockSize = options.blockSize ?? DEFAULT_BLOCK_SIZE;
   const blockCount = options.blockCount ?? DEFAULT_BLOCK_COUNT;
   const lookaheadSize = options.lookaheadSize ?? DEFAULT_LOOKAHEAD_SIZE;
   const diskVersion = options.diskVersion ?? DISK_VERSION_2_0;
 
-  // Configure module with custom locateFile for WASM
-  // Always set locateFile to ensure correct WASM path resolution
+  // 配置模块，使用自定义 locateFile 定位 WASM
+  // 始终设置 locateFile 以确保正确解析 WASM 路径
   const wasmURL =
     options.wasmURL ?? new URL("./littlefs.wasm", import.meta.url).href;
   const moduleConfig = createModuleConfig(wasmURL);
 
-  // Initialize Emscripten module
+  // 初始化 Emscripten 模块
   const Module = await createLittleFSModule(moduleConfig);
-  console.info("[littlefs-wasm] Emscripten module loaded");
+  console.info("[littlefs-wasm] Emscripten 模块已加载");
   try {
-    // Set disk version before init to ensure new filesystems use the specified version
-    // and to prevent automatic migration from older versions
+    // 在初始化前设置磁盘版本，以确保新文件系统使用指定版本
+    // 并防止从旧版本自动迁移
     if (Module._lfs_wasm_set_disk_version) {
       Module._lfs_wasm_set_disk_version(diskVersion);
       console.info(
-        "[littlefs-wasm] Disk version set to:",
+        "[littlefs-wasm] 磁盘版本已设置为：",
         formatDiskVersion(diskVersion),
       );
     }
 
-    // Initialize LittleFS
+    // 初始化 LittleFS
     const initResult = Module._lfs_wasm_init(
       blockSize,
       blockCount,
@@ -107,57 +107,57 @@ export async function createLittleFS(options = {}) {
     );
     if (initResult !== 0) {
       throw new LittleFSError(
-        `Failed to initialize LittleFS: ${initResult}`,
+        `初始化 LittleFS 失败：${initResult}`,
         initResult,
       );
     }
 
-    // Format if requested
+    // 如果请求，则格式化
     if (options.formatOnInit) {
       const formatResult = Module._lfs_wasm_format();
       if (formatResult !== 0) {
         throw new LittleFSError(
-          `Failed to format LittleFS: ${formatResult}`,
+          `格式化 LittleFS 失败：${formatResult}`,
           formatResult,
         );
       }
     }
 
-    // Mount (with optional auto-format on failure)
+    // 挂载（失败时可选择自动格式化）
     const mountResult = Module._lfs_wasm_mount();
     if (mountResult !== 0) {
       if (options.autoFormatOnMountFailure !== true) {
         throw new LittleFSError(
-          `Failed to mount LittleFS: ${mountResult}`,
+          `挂载 LittleFS 失败：${mountResult}`,
           mountResult,
         );
       }
       console.warn(
-        "[littlefs-wasm] Mount failed, attempting format and remount...",
+        "[littlefs-wasm] 挂载失败，尝试格式化和重新挂载...",
       );
       const formatResult = Module._lfs_wasm_format();
       if (formatResult !== 0) {
         throw new LittleFSError(
-          `Failed to format LittleFS: ${formatResult}`,
+          `格式化 LittleFS 失败：${formatResult}`,
           formatResult,
         );
       }
       const retryMount = Module._lfs_wasm_mount();
       if (retryMount !== 0) {
         throw new LittleFSError(
-          `Failed to mount LittleFS: ${retryMount}`,
+          `挂载 LittleFS 失败：${retryMount}`,
           retryMount,
         );
       }
     }
   } catch (error) {
-    // Clean up Module resources before rethrowing
+    // 重新抛出前清理 Module 资源
     if (Module._lfs_wasm_cleanup) {
       try {
         Module._lfs_wasm_cleanup();
       } catch (cleanupError) {
         console.error(
-          "[littlefs-wasm] Cleanup during error handling failed:",
+          "[littlefs-wasm] 错误处理期间清理失败：",
           cleanupError,
         );
       }
@@ -165,18 +165,18 @@ export async function createLittleFS(options = {}) {
     throw error;
   }
 
-  console.info("[littlefs-wasm] LittleFS mounted successfully");
+  console.info("[littlefs-wasm] LittleFS 成功挂载");
   return createClient(Module, blockSize, blockCount);
 }
 
 /**
- * Create a LittleFS instance from an existing image
+ * 从现有镜像创建 LittleFS 实例
  * @param {Uint8Array|ArrayBuffer} image
  * @param {LittleFSOptions} options
  * @returns {Promise<LittleFS>}
  */
 export async function createLittleFSFromImage(image, options = {}) {
-  console.info("[littlefs-wasm] createLittleFSFromImage() starting");
+  console.info("[littlefs-wasm] createLittleFSFromImage() 开始");
 
   const imageData =
     image instanceof ArrayBuffer ? new Uint8Array(image) : image;
@@ -185,31 +185,31 @@ export async function createLittleFSFromImage(image, options = {}) {
     options.blockCount ?? Math.ceil(imageData.length / blockSize);
   const lookaheadSize = options.lookaheadSize ?? DEFAULT_LOOKAHEAD_SIZE;
 
-  // Configure module with custom locateFile for WASM
-  // Always set locateFile to ensure correct WASM path resolution
+  // 配置模块，使用自定义 locateFile 定位 WASM
+  // 始终设置 locateFile 以确保正确解析 WASM 路径
   const wasmURL =
     options.wasmURL ?? new URL("./littlefs.wasm", import.meta.url).href;
   const moduleConfig = createModuleConfig(wasmURL);
 
-  // Initialize Emscripten module
+  // 初始化 Emscripten 模块
   const Module = await createLittleFSModule(moduleConfig);
-  console.info("[littlefs-wasm] Emscripten module loaded");
+  console.info("[littlefs-wasm] Emscripten 模块已加载");
 
-  // When loading from image, don't set disk version (preserve existing)
-  // This is important to not trigger migration
+  // 从镜像加载时，不设置磁盘版本（保留现有）
+  // 这对于不触发迁移很重要
 
   try {
-    // Allocate memory for image
+    // 为镜像分配内存
     const imagePtr = Module._malloc(imageData.length);
     if (!imagePtr) {
-      throw new LittleFSError("Failed to allocate memory for image", -1);
+      throw new LittleFSError("为镜像分配内存失败", -1);
     }
 
     try {
-      // Copy image to WASM memory
+      // 将镜像复制到 WASM 内存
       Module.HEAPU8.set(imageData, imagePtr);
 
-      // Initialize from image
+      // 从镜像初始化
       const initResult = Module._lfs_wasm_init_from_image(
         imagePtr,
         imageData.length,
@@ -220,7 +220,7 @@ export async function createLittleFSFromImage(image, options = {}) {
 
       if (initResult !== 0) {
         throw new LittleFSError(
-          `Failed to initialize LittleFS from image: ${initResult}`,
+          `从镜像初始化 LittleFS 失败：${initResult}`,
           initResult,
         );
       }
@@ -228,22 +228,22 @@ export async function createLittleFSFromImage(image, options = {}) {
       Module._free(imagePtr);
     }
 
-    // Mount
+    // 挂载
     const mountResult = Module._lfs_wasm_mount();
     if (mountResult !== 0) {
       throw new LittleFSError(
-        `Failed to mount LittleFS: ${mountResult}`,
+        `挂载 LittleFS 失败：${mountResult}`,
         mountResult,
       );
     }
   } catch (error) {
-    // Clean up Module resources before rethrowing
+    // 重新抛出前清理 Module 资源
     if (Module._lfs_wasm_cleanup) {
       try {
         Module._lfs_wasm_cleanup();
       } catch (cleanupError) {
         console.error(
-          "[littlefs-wasm] Cleanup during error handling failed:",
+          "[littlefs-wasm] 错误处理期间清理失败：",
           cleanupError,
         );
       }
@@ -251,12 +251,12 @@ export async function createLittleFSFromImage(image, options = {}) {
     throw error;
   }
 
-  // Get disk version after mounting
+  // 挂载后获取磁盘版本
   const version = Module._lfs_wasm_get_disk_version
     ? Module._lfs_wasm_get_disk_version()
     : 0;
   console.info(
-    "[littlefs-wasm] LittleFS mounted from image, disk version:",
+    "[littlefs-wasm] 已从镜像挂载 LittleFS，磁盘版本：",
     formatDiskVersion(version),
   );
 
@@ -264,7 +264,7 @@ export async function createLittleFSFromImage(image, options = {}) {
 }
 
 /**
- * Create the client API wrapper
+ * 创建客户端 API 包装器
  */
 function createClient(Module, blockSize, blockCount) {
   const encoder = new TextEncoder();
@@ -273,7 +273,7 @@ function createClient(Module, blockSize, blockCount) {
   function allocString(str) {
     const bytes = encoder.encode(str + "\0");
     const ptr = Module._malloc(bytes.length);
-    if (!ptr) throw new LittleFSError("Failed to allocate string", -1);
+    if (!ptr) throw new LittleFSError("分配字符串失败", -1);
     Module.HEAPU8.set(bytes, ptr);
     return ptr;
   }
@@ -284,7 +284,7 @@ function createClient(Module, blockSize, blockCount) {
     const limit = ptr + maxLength;
     while (end < limit && Module.HEAPU8[end] !== 0) end++;
     if (end >= limit) {
-      console.warn("[littlefs-wasm] String read truncated at maxLength");
+      console.warn("[littlefs-wasm] 字符串读取在 maxLength 处截断");
     }
     return decoder.decode(Module.HEAPU8.subarray(ptr, end));
   }
@@ -293,13 +293,13 @@ function createClient(Module, blockSize, blockCount) {
     format() {
       const result = Module._lfs_wasm_format();
       if (result !== 0) {
-        throw new LittleFSError(`Format failed: ${result}`, result);
+        throw new LittleFSError(`格式化失败：${result}`, result);
       }
-      // Remount after format
+      // 格式化后重新挂载
       const mountResult = Module._lfs_wasm_mount();
       if (mountResult !== 0) {
         throw new LittleFSError(
-          `Mount after format failed: ${mountResult}`,
+          `格式化后挂载失败：${mountResult}`,
           mountResult,
         );
       }
@@ -311,11 +311,11 @@ function createClient(Module, blockSize, blockCount) {
       let dirHandle = -1;
 
       try {
-        // dir_open returns handle >= 0 on success, negative on error
+        // dir_open 成功返回句柄 >= 0，失败返回负数
         dirHandle = Module._lfs_wasm_dir_open(pathPtr);
         if (dirHandle < 0) {
           throw new LittleFSError(
-            `Failed to open directory: ${dirHandle}`,
+            `打开目录失败：${dirHandle}`,
             dirHandle,
           );
         }
@@ -326,7 +326,7 @@ function createClient(Module, blockSize, blockCount) {
 
         try {
           while (true) {
-            // dir_read takes handle as first parameter
+            // dir_read 第一个参数为句柄
             const readResult = Module._lfs_wasm_dir_read(
               dirHandle,
               nameBuffer,
@@ -334,28 +334,28 @@ function createClient(Module, blockSize, blockCount) {
               typePtr,
               sizePtr,
             );
-            if (readResult === 0) break; // No more entries
+            if (readResult === 0) break; // 没有更多条目
             if (readResult < 0) {
               throw new LittleFSError(
-                `Failed to read directory: ${readResult}`,
+                `读取目录失败：${readResult}`,
                 readResult,
               );
             }
 
             const name = readString(nameBuffer);
-            // . and .. are already filtered in C code, but double-check
+            // C 代码中已过滤 . 和 ..，但再检查一次以防万一
             if (name === "." || name === "..") continue;
 
             const type = Module.HEAP32[typePtr >> 2];
             const size = Module.HEAPU32[sizePtr >> 2];
 
             const entryPath = path === "/" ? `/${name}` : `${path}/${name}`;
-            // type: 1 = file (LFS_TYPE_REG), 2 = directory (LFS_TYPE_DIR)
+            // type: 1 = 文件 (LFS_TYPE_REG), 2 = 目录 (LFS_TYPE_DIR)
             const isDir = type === 2;
             entries.push({
               path: entryPath,
               name,
-              size: isDir ? 0 : size, // Files have size, directories don't
+              size: isDir ? 0 : size, // 文件有大小，目录没有
               type: isDir ? "dir" : "file",
             });
           }
@@ -365,12 +365,12 @@ function createClient(Module, blockSize, blockCount) {
           Module._free(sizePtr);
         }
 
-        // dir_close takes handle as parameter
+        // dir_close 接受句柄参数
         Module._lfs_wasm_dir_close(dirHandle);
-        dirHandle = -1; // Mark as closed
+        dirHandle = -1; // 标记已关闭
       } finally {
         Module._free(pathPtr);
-        // Close handle if still open (in case of exception)
+        // 如果句柄仍打开（异常情况），关闭它
         if (dirHandle >= 0) {
           Module._lfs_wasm_dir_close(dirHandle);
         }
@@ -382,22 +382,22 @@ function createClient(Module, blockSize, blockCount) {
     readFile(path) {
       const pathPtr = allocString(path);
       try {
-        // Get file size first
+        // 先获取文件大小
         const size = Module._lfs_wasm_file_size(pathPtr);
         if (size < 0) {
-          throw new LittleFSError(`Failed to get file size: ${size}`, size);
+          throw new LittleFSError(`获取文件大小失败：${size}`, size);
         }
 
         const dataPtr = Module._malloc(size);
         if (!dataPtr && size > 0) {
-          throw new LittleFSError("Failed to allocate read buffer", -1);
+          throw new LittleFSError("分配读取缓冲区失败", -1);
         }
 
         try {
           const readResult = Module._lfs_wasm_read_file(pathPtr, dataPtr, size);
           if (readResult < 0) {
             throw new LittleFSError(
-              `Failed to read file: ${readResult}`,
+              `读取文件失败：${readResult}`,
               readResult,
             );
           }
@@ -421,7 +421,7 @@ function createClient(Module, blockSize, blockCount) {
 
       if (!dataPtr && bytes.length > 0) {
         Module._free(pathPtr);
-        throw new LittleFSError("Failed to allocate write buffer", -1);
+        throw new LittleFSError("分配写入缓冲区失败", -1);
       }
 
       try {
@@ -433,9 +433,9 @@ function createClient(Module, blockSize, blockCount) {
         );
         if (result < 0) {
           if (result === LFS_ERR_NOSPC) {
-            throw new LittleFSError("No space left on device", result);
+            throw new LittleFSError("设备上没有剩余空间", result);
           }
-          throw new LittleFSError(`Failed to write file: ${result}`, result);
+          throw new LittleFSError(`写入文件失败：${result}`, result);
         }
       } finally {
         Module._free(pathPtr);
@@ -452,7 +452,7 @@ function createClient(Module, blockSize, blockCount) {
       try {
         const result = Module._lfs_wasm_remove(pathPtr);
         if (result !== 0) {
-          throw new LittleFSError(`Failed to delete: ${result}`, result);
+          throw new LittleFSError(`删除失败：${result}`, result);
         }
       } finally {
         Module._free(pathPtr);
@@ -461,7 +461,7 @@ function createClient(Module, blockSize, blockCount) {
 
     delete(path, options = {}) {
       if (options.recursive) {
-        // List contents and delete recursively
+        // 列出内容并递归删除
         try {
           const entries = this.list(path);
           for (const entry of entries) {
@@ -472,10 +472,9 @@ function createClient(Module, blockSize, blockCount) {
             }
           }
         } catch (e) {
-          // Directory might be empty or not exist, log other errors
-          if (e.code !== -2) {
-            // -2 is ENOENT
-            console.warn("[littlefs-wasm] Error during recursive delete:", e);
+          // 目录可能为空或不存在，记录其他错误
+          if (e.code !== -2) { // -2 是 ENOENT
+            console.warn("[littlefs-wasm] 递归删除期间出错：", e);
           }
         }
       }
@@ -486,10 +485,10 @@ function createClient(Module, blockSize, blockCount) {
       const pathPtr = allocString(path);
       try {
         const result = Module._lfs_wasm_mkdir(pathPtr);
-        // Ignore "already exists" error
+        // 忽略“已存在”错误
         if (result !== 0 && result !== -17) {
           throw new LittleFSError(
-            `Failed to create directory: ${result}`,
+            `创建目录失败：${result}`,
             result,
           );
         }
@@ -504,7 +503,7 @@ function createClient(Module, blockSize, blockCount) {
       try {
         const result = Module._lfs_wasm_rename(oldPtr, newPtr);
         if (result !== 0) {
-          throw new LittleFSError(`Failed to rename: ${result}`, result);
+          throw new LittleFSError(`重命名失败：${result}`, result);
         }
       } finally {
         Module._free(oldPtr);
@@ -515,16 +514,16 @@ function createClient(Module, blockSize, blockCount) {
     toImage() {
       const size = Module._lfs_wasm_get_image_size();
       if (size <= 0) {
-        throw new LittleFSError(`Invalid image size: ${size}`, size);
+        throw new LittleFSError(`无效的镜像大小：${size}`, size);
       }
 
       const ptr = Module._lfs_wasm_get_image();
       if (!ptr) {
-        throw new LittleFSError("Failed to get image pointer", -1);
+        throw new LittleFSError("获取镜像指针失败", -1);
       }
 
-      // Note: ptr points to internal ram_storage buffer, not allocated memory
-      // slice() already copies the data, so we must NOT free this pointer
+      // 注意：ptr 指向内部的 ram_storage 缓冲区，不是分配的内存
+      // slice() 已经复制数据，因此我们绝对不能释放此指针
       return new Uint8Array(Module.HEAPU8.buffer, ptr, size).slice();
     },
 
@@ -541,7 +540,7 @@ function createClient(Module, blockSize, blockCount) {
         }
       }
       console.warn(
-        "[littlefs-wasm] getDiskVersion not available or filesystem not mounted",
+        "[littlefs-wasm] getDiskVersion 不可用或文件系统未挂载",
       );
       return 0;
     },
@@ -550,7 +549,7 @@ function createClient(Module, blockSize, blockCount) {
       if (Module._lfs_wasm_set_disk_version) {
         Module._lfs_wasm_set_disk_version(version);
       } else {
-        console.warn("[littlefs-wasm] setDiskVersion not available");
+        console.warn("[littlefs-wasm] setDiskVersion 不可用");
       }
     },
 
@@ -561,7 +560,7 @@ function createClient(Module, blockSize, blockCount) {
       try {
         const result = Module._lfs_wasm_fs_stat(blockUsedPtr, blockTotalPtr);
         if (result !== 0) {
-          // Fallback estimation
+          // 回退估算
           return {
             capacityBytes: blockSize * blockCount,
             usedBytes: 0,

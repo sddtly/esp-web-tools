@@ -2,7 +2,7 @@ import type { InstallButton } from "./install-button.js";
 import { connect as esptoolConnect } from "tasmota-webserial-esptool";
 
 /**
- * Detect if running on Android
+ * 检测是否在 Android 上运行
  */
 const isAndroid = (): boolean => {
   const userAgent = navigator.userAgent || "";
@@ -10,15 +10,15 @@ const isAndroid = (): boolean => {
 };
 
 /**
- * Load WebUSB serial wrapper for Android
+ * 为 Android 加载 WebUSB 串行包装器
  */
 const loadWebUSBSerial = async (): Promise<void> => {
-  // Check if already loaded
+  // 检查是否已加载
   if ((globalThis as any).requestSerialPort) {
     return;
   }
 
-  // Dynamically load the WebUSB serial script from the npm package
+  // 从 npm 包动态加载 WebUSB 串行脚本
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
     script.type = "module";
@@ -28,36 +28,31 @@ const loadWebUSBSerial = async (): Promise<void> => {
       if ((globalThis as any).requestSerialPort) {
         resolve();
       } else {
-        reject(
-          new Error(
-            "WebUSB serial script loaded but requestSerialPort not found",
-          ),
-        );
+        reject(new Error("WebUSB 串行脚本已加载但未找到 requestSerialPort"));
       }
     };
-    script.onerror = () =>
-      reject(new Error("Failed to load WebUSB serial script"));
+    script.onerror = () => reject(new Error("加载 WebUSB 串行脚本失败"));
     document.head.appendChild(script);
   });
 };
 
 export const connect = async (button: InstallButton) => {
   import("./install-dialog.js");
-  // Android: Load WebUSB support first
+  // Android：首先加载 WebUSB 支持
   if (isAndroid() && "usb" in navigator) {
     try {
       await loadWebUSBSerial();
     } catch (err: any) {
-      alert(`Failed to load WebUSB support: ${err.message}`);
+      alert(`加载 WebUSB 支持失败：${err.message}`);
       return;
     }
   }
 
-  // Use tasmota-webserial-esptool's connect() - handles ALL port logic
+  // 使用 tasmota-webserial-esptool 的 connect() - 处理所有端口逻辑
   let esploader;
   try {
     esploader = await esptoolConnect({
-      log: () => {}, // Silent logger for connection
+      log: () => {}, // 连接时静默记录
       debug: () => {},
       error: (msg: string) => console.error(msg),
     });
@@ -68,22 +63,22 @@ export const connect = async (button: InstallButton) => {
       );
       return;
     }
-    alert(`Connection failed: ${err.message}`);
+    alert(`连接失败：${err.message}`);
     return;
   }
 
   if (!esploader) {
-    alert("Failed to connect to device");
+    alert("无法连接到设备");
     return;
   }
 
   const el = document.createElement("ewt-install-dialog");
-  el.esploader = esploader; // Pass ESPLoader instead of port
+  el.esploader = esploader; // 传递 ESPLoader 而不是端口
   el.manifestPath = button.manifest || button.getAttribute("manifest")!;
   el.overrides = button.overrides;
   el.firmwareFile = button.firmwareFile;
 
-  // Get baud rate from attribute or use default
+  // 从属性获取波特率或使用默认值
   const baudRateAttr = button.getAttribute("baud-rate");
   if (baudRateAttr) {
     const baudRate = parseInt(baudRateAttr, 10);
@@ -100,7 +95,7 @@ export const connect = async (button: InstallButton) => {
       try {
         await esploader.disconnect();
       } catch (err) {
-        // Ignore disconnect errors
+        // 忽略断开连接错误
       }
     },
     { once: true },

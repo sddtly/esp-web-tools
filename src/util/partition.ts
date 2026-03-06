@@ -1,5 +1,5 @@
 /**
- * Detect filesystem type by reading partition header
+ * 通过读取分区头部检测文件系统类型
  */
 export async function detectFilesystemType(
   espStub: any,
@@ -8,25 +8,25 @@ export async function detectFilesystemType(
   logger: any = console,
 ): Promise<string> {
   try {
-    // Read first 8KB or entire partition if smaller
+    // 读取前 8KB 或整个分区（如果更小）
     const readSize = Math.min(8192, size);
     const data = await espStub.readFlash(offset, readSize);
 
     if (data.length < 32) {
-      logger.log("Partition too small, assuming SPIFFS");
+      logger.log("分区太小，假定为 SPIFFS");
       return "spiffs";
     }
 
-    // Method 1: Check for "littlefs" string in metadata
+    // 方法 1：检查元数据中是否包含 "littlefs" 字符串
     const decoder = new TextDecoder("ascii", { fatal: false });
     const dataStr = decoder.decode(data);
 
     if (dataStr.includes("littlefs")) {
-      logger.log('✓ LittleFS detected: Found "littlefs" signature');
+      logger.log('✓ 检测到 LittleFS：找到 "littlefs" 签名');
       return "littlefs";
     }
 
-    // Method 2: Check for LittleFS block structure
+    // 方法 2：检查 LittleFS 块结构
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
 
     const blockSizes = [4096, 2048, 1024, 512];
@@ -40,33 +40,31 @@ export async function detectFilesystemType(
 
             if (type <= 0x7ff && length > 0 && length <= 1022) {
               if (i + length + 4 <= data.length) {
-                logger.log(
-                  "✓ LittleFS detected: Found valid metadata structure",
-                );
+                logger.log("✓ 检测到 LittleFS：找到有效的元数据结构");
                 return "littlefs";
               }
             }
           }
         } catch (e) {
-          // Continue checking other methods
+          // 继续检查其他方法
         }
       }
     }
 
-    // Method 3: Check for SPIFFS signatures
+    // 方法 3：检查 SPIFFS 签名
     for (let i = 0; i < Math.min(4096, data.length - 4); i += 4) {
       const magic = view.getUint32(i, true);
       if (magic === 0x20140529 || magic === 0x20160529) {
-        logger.log("✓ SPIFFS detected: Found SPIFFS magic number");
+        logger.log("✓ 检测到 SPIFFS：找到 SPIFFS 魔数");
         return "spiffs";
       }
     }
 
-    // Default: assume SPIFFS
-    logger.log("⚠ No clear filesystem signature found, assuming SPIFFS");
+    // 默认：假定为 SPIFFS
+    logger.log("⚠ 未找到清晰的文件系统签名，假定为 SPIFFS");
     return "spiffs";
   } catch (err: any) {
-    logger.error(`Failed to detect filesystem type: ${err.message || err}`);
-    return "spiffs"; // Safe fallback
+    logger.error(`检测文件系统类型失败：${err.message || err}`);
+    return "spiffs"; // 安全的回退
   }
 }

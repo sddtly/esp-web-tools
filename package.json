@@ -29,7 +29,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
     "prettier": "^3.7.3",
-    "rollup": "^4.53.5",
+    "rollup": "4.59.0",
     "serve": "^14.2.4",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.52.0"
@@ -44,7 +44,7 @@
     "@material/mwc-textfield": "^0.27.0",
     "improv-wifi-serial-sdk": "^2.5.0",
     "lit": "^2.8.0",
-    "tasmota-webserial-esptool": "^9.2.19",
+    "tasmota-webserial-esptool": "github:sddtly/WebSerial_ESPTool",
     "tslib": "^2.8.1"
   }
 }

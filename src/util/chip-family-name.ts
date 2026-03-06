@@ -41,6 +41,6 @@ export const getChipFamilyName = (
     case CHIP_FAMILY_ESP8266:
       return "ESP8266";
     default:
-      return "Unknown Chip";
+      return "未知芯片";
   }
 };
