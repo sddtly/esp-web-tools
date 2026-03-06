@@ -1,6 +1,7 @@
-# ESP Web Tools next generation
+# ESP Web Tools 下一代版本
 
-Allow flashing Tasmota or other ESP-based firmwares via the browser. Will automatically detect the board type and select a supported firmware. [See website for full documentation.](https://jason2866.github.io/esp-web-tools/))
+允许通过浏览器烧录 **Tasmota** 或其他基于 **ESP** 的固件。该工具会自动检测开发板类型，并选择对应支持的固件版本进行烧录。
+完整文档请查看官方网站：https://jason2866.github.io/esp-web-tools/
 
 ```html
 <esp-web-install-button
@@ -8,7 +9,7 @@ Allow flashing Tasmota or other ESP-based firmwares via the browser. Will automa
 ></esp-web-install-button>
 ```
 
-Example manifest:
+示例 manifest：
 
 ```json
 {
@@ -76,15 +77,19 @@ Example manifest:
     {
       "chipFamily": "ESP8266",
       "improv": true,
-      "parts": [{ "path": "../firmware/tasmota/tasmota.bin", "offset": 0 }]
+      "parts": [
+        { "path": "../firmware/tasmota/tasmota.bin", "offset": 0 }
+      ]
     }
   ]
 }
 ```
 
-## Chip Variant Support (ESP32-P4)
+---
 
-For chips with multiple hardware revisions (like ESP32-P4), you can specify different firmware builds for each variant:
+# 芯片变体支持（ESP32-P4）
+
+对于具有多个硬件版本的芯片（例如 **ESP32-P4**），可以为不同的芯片版本指定不同的固件构建。
 
 ```json
 {
@@ -93,52 +98,82 @@ For chips with multiple hardware revisions (like ESP32-P4), you can specify diff
     {
       "chipFamily": "ESP32-P4",
       "chipVariant": "rev0",
-      "parts": [{ "path": "firmware_p4_old.bin", "offset": 0 }]
+      "parts": [
+        { "path": "firmware_p4_old.bin", "offset": 0 }
+      ]
     },
     {
       "chipFamily": "ESP32-P4",
       "chipVariant": "rev300",
-      "parts": [{ "path": "firmware_p4_new.bin", "offset": 0 }]
+      "parts": [
+        { "path": "firmware_p4_new.bin", "offset": 0 }
+      ]
     }
   ]
 }
 ```
 
-The `chipVariant` field is optional. If omitted, the build will match any variant of that chip family.
+`chipVariant` 字段是可选的。如果未指定，该构建将匹配该芯片系列的任意版本。
 
-See [manifest-example-p4-variants.json](manifest-example-p4-variants.json) for a complete example.
+完整示例请查看：`manifest-example-p4-variants.json`
 
-## Performance
+---
 
-ESP Web Tools supports configurable baud rates for flashing. By default, it uses 115200 baud for maximum compatibility. You can increase the baud rate for significantly faster flashing speeds.
+# 性能
 
-### Custom Baud Rate
+ESP Web Tools 支持可配置的烧录波特率。默认情况下使用 **115200** 波特率，以保证最大的兼容性。
+如果提高波特率，可以显著加快烧录速度。
 
-You can customize the baud rate using the `baud-rate` attribute:
+---
+
+# 自定义波特率
+
+可以使用 `baud-rate` 属性自定义波特率：
 
 ```html
-<!-- Default: 115200 baud (maximum compatibility) -->
+<!-- 默认：115200 波特率（兼容性最高） -->
 <esp-web-install-button manifest="manifest.json">
   <button slot="activate">Install</button>
 </esp-web-install-button>
 
-<!-- Fast: 2 Mbps (~17x faster, recommended for modern chips) -->
-<esp-web-install-button 
+<!-- 高速：2 Mbps（约快 17 倍，推荐现代芯片使用） -->
+<esp-web-install-button
   manifest="manifest.json"
   baud-rate="2000000">
   <button slot="activate">Install</button>
 </esp-web-install-button>
 
-<!-- Safe: 460800 baud (~4x faster, works with older USB-Serial chips like CH340) -->
-<esp-web-install-button 
+<!-- 安全模式：460800（约快 4 倍，适用于较旧 USB 转串口芯片，如 CH340） -->
+<esp-web-install-button
   manifest="manifest.json"
   baud-rate="460800">
   <button slot="activate">Install</button>
 </esp-web-install-button>
 ```
 
-Available baud rates: `230400`, `460800`, `921600`, `1500000`, `2000000`
+可用波特率：
 
-## Development
+```
+230400
+460800
+921600
+1500000
+2000000
+```
 
-Run `script/develop`. This starts a server. Open it on http://localhost:5004.
+---
+
+# 开发
+
+运行：
+
+```
+script/develop
+```
+
+这会启动一个本地服务器。
+然后在浏览器中打开：
+
+```
+http://localhost:5004
+```
