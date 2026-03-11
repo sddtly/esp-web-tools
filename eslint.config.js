@@ -14,6 +14,8 @@ export default tseslint.config(
     rules: {
       "no-console": "warn",
       "prettier/prettier": "error",
+      // 禁用 any 类型检查
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
   {

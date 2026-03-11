@@ -33,8 +33,8 @@ export const flash = async (
       chipVariant,
     });
 
-  var manifestProm = null;
-  var manifestURL: string = "";
+  let manifestProm = null;
+  let manifestURL: string = "";
 
   try {
     manifestProm = JSON.parse(manifestPath);

@@ -601,8 +601,8 @@ export class EwtInstallDialog extends LitElement {
   _renderDashboard(): [string, TemplateResult, boolean, boolean] {
     const heading = this._info!.name;
     let content: TemplateResult;
-    let hideActions = true;
-    let allowClosing = true;
+    const hideActions = true;
+    const allowClosing = true;
 
     content = html`
       <div class="table-row">
@@ -966,8 +966,8 @@ export class EwtInstallDialog extends LitElement {
   _renderDashboardNoImprov(): [string, TemplateResult, boolean, boolean] {
     const heading = "设备仪表板";
     let content: TemplateResult;
-    let hideActions = true;
-    let allowClosing = true;
+    const hideActions = true;
+    const allowClosing = true;
 
     content = html`
       <div class="dashboard-buttons">
@@ -1466,7 +1466,7 @@ export class EwtInstallDialog extends LitElement {
         html`
           ${undeterminateLabel ? html`${undeterminateLabel}<br />` : ""}
           <br />
-          ‌这需要一分钟。<br />
+          ‌这可能需要几分钟。<br />
           在安装完成前保持此页面可见。
         `,
         percentage,
@@ -1517,9 +1517,9 @@ export class EwtInstallDialog extends LitElement {
   }
 
   _renderLogs(): [string | undefined, TemplateResult, boolean] {
-    let heading: string | undefined = `日志`;
+    const heading: string | undefined = `日志`;
     let content: TemplateResult;
-    let hideActions = false;
+    const hideActions = false;
 
     content = html`
       <ewt-console
@@ -1557,7 +1557,7 @@ export class EwtInstallDialog extends LitElement {
       ></ewt-button>
       <ewt-button
         slot="secondaryAction"
-        label="重置设备"
+        label="重启设备"
         @click=${async () => {
           await this.shadowRoot!.querySelector("ewt-console")!.reset();
         }}
@@ -2937,7 +2937,7 @@ export class EwtInstallDialog extends LitElement {
       }
       ewt-console {
         width: calc(80vw - 48px);
-        height: 80vh;
+        height: 78vh;
       }
       :host([state="PARTITIONS"]) ewt-dialog {
         --mdc-dialog-max-width: 800px;
